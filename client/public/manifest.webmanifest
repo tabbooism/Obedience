@@ -1,0 +1,9 @@
+{
+  "name": "Obediance Intelligence Platform",
+  "short_name": "Obediance",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07060b",
+  "theme_color": "#100b19",
+  "description": "Authorized public-source intelligence workspace"
+}

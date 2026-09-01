@@ -30,3 +30,19 @@ The versioned API is available under `/api/v1`. `GET /api/v1/health` is public. 
 ## Operations checklist
 
 Before making a live DNS change, verify that the application build and tests pass, the database is reachable, the Cloudflare tunnel connector can reach `127.0.0.1:3100`, and the hostname routes do not include the apex domain. After routing, check both HTTPS hostnames and then inspect application logs for authentication and upstream failures. Keep the Cloudflare dashboard as the source of truth for tunnel credentials and hostname status.
+
+## Quick restart after pulling the updated branch
+
+From the repository root, stop the current process with `Ctrl+C`, then run `git pull --ff-only origin manus/integrated-console-wip`. For a development preview, run `pnpm install --frozen-lockfile && pnpm dev`; the local server normally listens on `http://127.0.0.1:3000`. For a production-style restart, load the protected environment and run `OBEDIANCE_SKIP_INSTALL=1 OBEDIANCE_SKIP_MIGRATION=1 START_APP=1 bash scripts/aio-deploy.sh`. For a full validation and build, omit the two skip flags. The script validates Node.js and pnpm, runs checks, tests, builds, and then starts the application.
+
+## Cloudflare tunnel restart
+
+Load the protected environment containing `DATABASE_URL`, `OBEDIANCE_API_KEY`, and `CLOUDFLARE_TUNNEL_TOKEN`, then run `START_TUNNEL=1 bash scripts/aio-deploy.sh`. Start only one connector for the service. The script waits for `GET /api/v1/health` before starting the tunnel and exits if the application does not become healthy. Do not put credentials in the repository or command history.
+
+## First-party API
+
+Obediance already provides its own versioned REST API under `/api/v1`; it does not require a third-party API gateway. `GET /api/v1/health` is public for health checks. All other API routes require `Authorization: Bearer $OBEDIANCE_API_KEY`, use bounded request validation, owner scoping, rate limiting, request IDs, audit events, and safe error envelopes. External providers are optional only for enrichment sources, email/SMS delivery, signaling, or push delivery.
+
+## Phone notifications
+
+The dashboard is installable as a lightweight PWA and includes a first-party service worker. On a phone, open the dashboard over HTTPS, install it to the home screen if desired, open **Comms desk**, and choose **Enable phone alerts**. This enables browser/PWA notifications without exposing provider credentials. True background push from the server requires HTTPS, VAPID keys, and a persistent subscription store; until those are configured, the UI intentionally reports the capability as optional rather than pretending server push is active.
