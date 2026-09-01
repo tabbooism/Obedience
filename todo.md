@@ -41,3 +41,15 @@
 - [x] Start the production build with the existing Cloudflare Tunnel now, verify local health plus both HTTPS hostnames, and record whether the process is temporary or persistent; current sandbox connector is temporary and the production server is healthy on port 3100.
 - [x] Remove preview/publish messaging from the production response path entirely, or move live domains to a true production origin that does not inject it.
 - [x] Add automated HTML-response assertions that both custom hostnames contain no preview-mode or publish-preview strings.
+- [ ] Fix the Debian environment guidance and AIO validation so `DATABASE_URL=DATABASE_URL=...` and documentation placeholder values fail clearly before Drizzle runs.
+- [ ] Restart the Debian/WSL service after a valid real database URL is installed and verify the local API plus both Cloudflare hostnames.
+- [ ] Correct `/etc/obediance/obediance.env` so `DATABASE_URL` is a single assignment containing the real local MariaDB password, then restart the service and re-run health/domain checks.
+- [ ] Rotate the Cloudflare connector credential previously exposed in chat and install only the replacement token on Debian.
+- [ ] Add a real `OBEDIANCE_API_KEY` to `/etc/obediance/obediance.env` so the authenticated API test can pass before production startup.
+- [ ] Confirm the Cloudflare token in the protected environment is the newly rotated value, not the credential previously exposed in chat.
+- [ ] Replace the invalid Cloudflare tunnel ID/credential with a valid connector token from Cloudflare, restart the AIO service, and verify both HTTPS subdomains.
+- [ ] Keep the pre-existing inactive `cloudflared.service` disabled and run exactly one valid connector through the Obediance AIO service.
+- [ ] Restart the AIO service with the valid rotated connector token and verify local health plus both HTTPS subdomains.
+- [ ] Fix the missing frontend navigation so implemented dashboard, investigations, entities, evidence, sources, reports, audit, and admin pages are reachable through visible routes.
+- [ ] Push the current project state and `todo.md` to the GitHub milestone branch with a descriptive commit and record the SHA.
+- [ ] Immediately synchronize the current project and `todo.md` to the GitHub milestone branch and record the resulting commit SHA for handoff.
