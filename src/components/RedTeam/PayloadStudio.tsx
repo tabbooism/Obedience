@@ -17,6 +17,7 @@ import {
   obfuscateEnvConcat 
 } from "../../utils/payloadEngine";
 import { calculateSha256 } from "../../utils/cryptoVault";
+import { ScenarioPreviewVisualizer } from "./ScenarioPreviewVisualizer";
 import { 
   Terminal, 
   Cpu, 
@@ -40,7 +41,9 @@ import {
   Zap,
   Sliders,
   Eye,
-  Radio
+  Radio,
+  MessageSquare,
+  Globe
 } from "lucide-react";
 
 interface PayloadStudioProps {
@@ -59,7 +62,7 @@ export const PayloadStudio: React.FC<PayloadStudioProps> = ({
   onAuditLog,
 }) => {
   // Navigation within Payload Studio
-  const [subView, setSubView] = useState<"generate" | "detection" | "sandbox" | "history">("generate");
+  const [subView, setSubView] = useState<"generate" | "preview" | "detection" | "sandbox" | "history">("generate");
   const [mobileGeneratorTab, setMobileGeneratorTab] = useState<"config" | "code">("config");
 
   // Generator State
@@ -454,6 +457,18 @@ level: high`);
           </button>
 
           <button
+            onClick={() => setSubView("preview")}
+            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono font-medium flex items-center space-x-1.5 transition-all shrink-0 min-h-[38px] ${
+              subView === "preview"
+                ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg font-bold"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-cyan-400" />
+            <span>PREVIEW & SCENARIOS</span>
+          </button>
+
+          <button
             onClick={() => setSubView("detection")}
             className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono font-medium flex items-center space-x-1.5 transition-all shrink-0 min-h-[38px] ${
               subView === "detection"
@@ -736,6 +751,14 @@ level: high`);
                   </button>
 
                   <button
+                    onClick={() => setSubView("preview")}
+                    className="px-2 sm:px-2.5 py-1 bg-gradient-to-r from-cyan-600/80 to-blue-600/80 hover:from-cyan-500 hover:to-blue-500 text-white rounded text-xs font-mono flex items-center space-x-1.5 transition-colors shadow-md min-h-[36px] font-bold"
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    <span>PREVIEW & CHAT</span>
+                  </button>
+
+                  <button
                     onClick={handleDownload}
                     className="px-2 sm:px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-mono flex items-center space-x-1 transition-colors min-h-[36px]"
                   >
@@ -800,7 +823,42 @@ level: high`);
           </div>
         )}
 
-        {/* VIEW 2: DETECTION ENGINEERING (YARA & SIGMA) */}
+        {/* VIEW 2: SCENARIO & OBFUSCATION PREVIEW (CHATBOX & URL) */}
+        {subView === "preview" && (
+          <ScenarioPreviewVisualizer
+            currentPayload={currentCode}
+            payloadFilename={currentFilename}
+            obfuscationMethod={obfuscationMethod}
+            entropy={entropy}
+            onAuditLog={onAuditLog}
+            onSendToGraph={(url, scenarioType) => {
+              const newNode: GraphNode = {
+                id: `node-scenario-${Date.now()}`,
+                label: `Scenario Probe: ${url.slice(0, 24)}...`,
+                type: "domain",
+                x: 450 + Math.random() * 60,
+                y: 320 + Math.random() * 60,
+                riskScore: 85,
+                confidence: 90,
+                classification: "Secret",
+                tags: ["SCENARIO_PROBE", scenarioType.toUpperCase(), "RED_TEAM"],
+                attributes: {
+                  "Target URI": url,
+                  "Scenario Type": scenarioType,
+                  "Associated Payload": currentFilename,
+                  "Obfuscation": obfuscationMethod,
+                  "Timestamp": new Date().toISOString(),
+                },
+                notes: `Simulated ${scenarioType} probe delivering payload to target domain.`,
+                isFlagged: true,
+              };
+              onAddNodeToGraph(newNode);
+              onAuditLog("SCENARIO_INGESTED_TO_GRAPH", url, `Scenario type: ${scenarioType}`);
+            }}
+          />
+        )}
+
+        {/* VIEW 3: DETECTION ENGINEERING (YARA & SIGMA) */}
         {subView === "detection" && (
           <div className="flex-1 flex flex-col p-3 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6">
             <div className="flex items-center justify-between">

