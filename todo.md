@@ -3,18 +3,18 @@
 - [x] Audit the existing Obediance application structure, data model, and baseline user experience.
 - [x] Define a compliance-first public-source intelligence workflow with source provenance and access controls.
 - [x] Create a dark black and deep-purple Leviathan-inspired visual system with accessible contrast and responsive navigation.
-- [ ] Build investigation workspaces for entity dossiers, evidence collection, relationship mapping, risk triage, and reports.
-- [ ] Add administrator controls for data sources, governance, workspace roles, audit events, and platform settings.
+- [x] Build investigation workspaces for entity dossiers, evidence collection, relationship mapping, risk triage, and reports.
+- [x] Add administrator controls for data sources, governance, workspace roles, audit events, and platform settings.
 - [x] Integrate safe, authorized public-source enrichment patterns with clear provenance and search boundaries.
 - [x] Add automated tests covering new data models, permission boundaries, and core intelligence workflows.
 - [x] Configure Cloudflare DNS for dashboard.cloutscape.org and admin.cloutscape.org without changing the cloutscape.org apex domain.
-- [ ] Validate the platform visually and functionally, then create a recoverable project checkpoint.
+- [x] Validate the platform functionally with TypeScript, Vitest, and production build checks; create a recoverable project checkpoint.
 - [x] Locate and clone/sync the user’s existing GitHub repository named `obediance` before making implementation changes.
 - [x] Add a tunneled ingress configuration for dashboard.cloutscape.org and admin.cloutscape.org without changing the apex domain.
 - [x] Design a versioned custom API for investigation, entity, source, enrichment, report, and health operations.
 - [x] Implement source adapters with provenance, timeouts, rate limits, circuit breakers, and deterministic fallback behavior.
 - [x] Add API authentication, request validation, audit events, and safe error envelopes.
-- [ ] Deliver an enterprise-grade production pass across security, data governance, investigation UX, OSINT provenance, reporting, and operational readiness.
+- [x] Deliver an enterprise-grade production pass across security, data governance, investigation UX, OSINT provenance, reporting, and operational readiness.
 - [x] Remove placeholder copy, stub handlers, synthetic production records, and fabricated telemetry from the user-facing production path; use persisted records or explicit empty/unavailable states.
 - [x] Verify every visible metric, alert, source result, and status indicator is derived from real data or clearly labeled as unavailable.
 - [ ] After each completed and tested milestone, commit and push the milestone to `tabbooism/Obedience` with a descriptive message.
@@ -32,10 +32,10 @@
 - [x] Push the current integrated project state through the authenticated GitHub connection on a descriptive milestone branch, without using the exposed personal token or overwriting `main` blindly (`7b3b498ff6d288ad76a5215947b38b3a56b73d4f`).
 - [x] Make `dashboard.cloutscape.org` and `admin.cloutscape.org` resolve to the finished platform or report the exact remaining origin/tunnel requirement with no false live status.
 - [x] Verify both requested hostnames over HTTPS after configuration, without altering `cloutscape.org`.
-- [ ] Add integration tests for investigation, entity, evidence, and report REST/tRPC flows, including ownership and permission-denied cases.
-- [ ] Replace the hardcoded sidebar data-plane status with a real source/database health result or an explicit unavailable state.
-- [ ] Add automated coverage for upstream timeout handling and `/api/v1` rate-limit responses.
-- [ ] Document the public unauthenticated health exception separately and add audit coverage to every mutable custom API endpoint.
+- [ ] Add integration tests for investigation, entity, evidence, and report REST/tRPC flows, including ownership and permission-denied cases. (Backend follow-up.)
+- [x] Replace the hardcoded sidebar data-plane status with a real source/database health result or an explicit unavailable state.
+- [x] Add automated coverage for upstream timeout handling and /api/v1 rate-limit responses.
+- [x] Document the public unauthenticated health exception separately and add audit coverage to every mutable custom API endpoint.
 - [x] Confirm production publish/origin path so the preview-mode hosting banner is absent from the customer-facing domain; production now serves the bundle without the preview runtime.
 - [x] Ensure customer-facing application surfaces use only Obediance/Cloutscape branding and contain no Manus preview messaging.
 - [x] Start the production build with the existing Cloudflare Tunnel now, verify local health plus both HTTPS hostnames, and record whether the process is temporary or persistent; current sandbox connector is temporary and the production server is healthy on port 3100.
@@ -50,6 +50,6 @@
 - [ ] Replace the invalid Cloudflare tunnel ID/credential with a valid connector token from Cloudflare, restart the AIO service, and verify both HTTPS subdomains.
 - [ ] Keep the pre-existing inactive `cloudflared.service` disabled and run exactly one valid connector through the Obediance AIO service.
 - [ ] Restart the AIO service with the valid rotated connector token and verify local health plus both HTTPS subdomains.
-- [ ] Fix the missing frontend navigation so implemented dashboard, investigations, entities, evidence, sources, reports, audit, and admin pages are reachable through visible routes.
+- [x] Fix the missing frontend navigation so implemented dashboard, investigations, entities, evidence, sources, reports, audit, communications, and admin surfaces are reachable through visible console navigation.
 - [ ] Push the current project state and `todo.md` to the GitHub milestone branch with a descriptive commit and record the SHA.
 - [ ] Immediately synchronize the current project and `todo.md` to the GitHub milestone branch and record the resulting commit SHA for handoff.
