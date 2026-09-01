@@ -37,12 +37,6 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
-if (import.meta.env.PROD && typeof window !== "undefined") {
-  const runtimeWindow = window as typeof window & { __MANUS_HOST_DEV__?: boolean };
-  runtimeWindow.__MANUS_HOST_DEV__ = false;
-  document.documentElement.dataset.obedianceProduction = "true";
-}
-
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({

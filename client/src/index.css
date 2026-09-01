@@ -160,7 +160,3 @@ kbd { padding: 2px 5px; border: 1px solid rgba(195,161,255,.18); border-radius: 
 @media (max-width: 460px) { .metric-grid { grid-template-columns: 1fr; } .metric-card { min-height: 110px; } .secondary-button { padding: 0 10px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
 
-/* Preview hosting chrome is excluded from the production customer-facing shell. */
-html[data-obediance-production="true"] [data-loc^="src/modules/Alert/PreviewerModeAlert.tsx"] {
-  display: none !important;
-}

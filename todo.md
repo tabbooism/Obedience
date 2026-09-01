@@ -36,6 +36,8 @@
 - [ ] Replace the hardcoded sidebar data-plane status with a real source/database health result or an explicit unavailable state.
 - [ ] Add automated coverage for upstream timeout handling and `/api/v1` rate-limit responses.
 - [ ] Document the public unauthenticated health exception separately and add audit coverage to every mutable custom API endpoint.
-- [ ] Confirm production publish/origin path so the preview-mode hosting banner is absent from the customer-facing domain; do not attempt to hide hosting chrome inside application code.
-- [ ] Ensure customer-facing application surfaces use only Obediance/Cloutscape branding and contain no Manus preview messaging.
-- [ ] Start the production build with the existing Cloudflare Tunnel now, verify local health plus both HTTPS hostnames, and record whether the process is temporary or persistent.
+- [x] Confirm production publish/origin path so the preview-mode hosting banner is absent from the customer-facing domain; production now serves the bundle without the preview runtime.
+- [x] Ensure customer-facing application surfaces use only Obediance/Cloutscape branding and contain no Manus preview messaging.
+- [x] Start the production build with the existing Cloudflare Tunnel now, verify local health plus both HTTPS hostnames, and record whether the process is temporary or persistent; current sandbox connector is temporary and the production server is healthy on port 3100.
+- [x] Remove preview/publish messaging from the production response path entirely, or move live domains to a true production origin that does not inject it.
+- [x] Add automated HTML-response assertions that both custom hostnames contain no preview-mode or publish-preview strings.

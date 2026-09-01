@@ -9,5 +9,9 @@ for host in dashboard.cloutscape.org admin.cloutscape.org; do
     exit 1
   fi
   grep -q "Obediance" "/tmp/obediance-${host}.html" || { printf 'failed (unexpected response)\n' >&2; exit 1; }
+  if grep -qi 'Preview mode\|publish to get a public link\|PreviewerModeAlert' "/tmp/obediance-${host}.html"; then
+    printf 'failed (preview messaging present)\n' >&2
+    exit 1
+  fi
   printf 'ok\n'
 done
