@@ -6,7 +6,20 @@ The application is a Node.js 20+ full-stack service with a Vite frontend, Expres
 
 ## WSL 2 and Windows 11
 
-From PowerShell, run `wsl` and then change into the Linux-mounted repository directory. Execute `bash scripts/aio-deploy.sh` for the native Linux workflow, or run `powershell -ExecutionPolicy Bypass -File scripts/aio-deploy.ps1` from the repository root. The script checks Node.js and pnpm, installs the lockfile, applies migrations when `DATABASE_URL` is present, runs type checks and tests, and builds the application. The script intentionally stops when a required database or tunnel credential is missing.
+From PowerShell, run `wsl` and then change into the Linux-mounted repository directory. Execute `bash scripts/aio-deploy.sh` for the native Linux workflow, or run `powershell -ExecutionPolicy Bypass -File scripts/aio-deploy.ps1` from the repository root. The script checks Node.js and pnpm, installs the lockfile, applies migrations when `DATABASE_URL` is present, runs type checks and tests, and builds the application. The script intentionally stops when a required database or tunnel credential is missing. The repository uses pnpm 10.4.1 because its lockfile is format 9; older pnpm versions must not be used.
+
+If installation reports `ERR_PNPM_LOCKFILE_BREAKING_CHANGE`, repair the local environment with:
+
+```bash
+corepack enable
+corepack prepare pnpm@10.4.1 --activate
+cd /opt/obediance
+rm -rf node_modules
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+If Corepack is unavailable, use `npx --yes pnpm@10.4.1 install --frozen-lockfile` instead. Do not use `--force` unless you intentionally want to regenerate and review the lockfile; the normal fix is to use pnpm 10.4.1. The AIO deployment script now checks this version before attempting installation.
 
 The Windows device is appropriate for development and tunnel testing. It should not be treated as the sole production host because Windows sleep, restart, or WSL shutdown will interrupt the tunnel. For production, use an always-on Debian host and run the same Linux script from a service manager.
 

@@ -17,6 +17,8 @@ trap 'fail "Deployment stopped at line $LINENO."' ERR
 
 command -v node >/dev/null 2>&1 || fail "Node.js is required. Install Node.js 20+ in WSL 2 or Debian."
 command -v pnpm >/dev/null 2>&1 || fail "pnpm is required. Enable it with corepack or install it in the active Linux environment."
+PNPM_MAJOR="$(pnpm --version | cut -d. -f1)"
+[ "$PNPM_MAJOR" -ge 10 ] 2>/dev/null || fail "pnpm 10+ is required for this repository lockfile. Run: corepack enable && corepack prepare pnpm@10.4.1 --activate"
 node -e 'const major=Number(process.versions.node.split(".")[0]); if (major < 20) process.exit(1)' || fail "Node.js 20+ is required."
 
 if grep -qi microsoft /proc/version 2>/dev/null; then
