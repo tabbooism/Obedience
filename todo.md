@@ -26,4 +26,7 @@
 - [ ] Ensure all scripts use cross-platform-safe paths, signals, environment handling, and clear prerequisite failures.
 - [ ] Implement actual versioned REST endpoints for investigations, entities, sources, enrichment, reports, and health under `/api/v1/*`.
 - [ ] Apply consistent API-key authentication, request validation, audit logging, and safe error envelopes across every custom API endpoint.
-- [ ] Commit the tested milestone to `tabbooism/Obedience`, push it, and record the commit SHA in project notes.
+- [x] Commit the tested milestone to `tabbooism/Obedience`, push it, and record the commit SHA in project notes (`46361e92330e5a03f8816becd003fbd992cc10d0`, branch `manus/backend-foundation`).
+- [ ] Build the production frontend shell and route dashboard/admin hostnames without changing the apex domain.
+- [ ] Add Cloudflare tunnel ingress configuration for WSL 2 testing and Debian production.
+- [ ] Push the current integrated project state through the authenticated GitHub connection on a descriptive milestone branch, without using the exposed personal token or overwriting `main` blindly.
