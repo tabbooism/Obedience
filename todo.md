@@ -1,34 +1,41 @@
 # Project TODO
 
-- [ ] Audit the existing Obediance application structure, data model, and baseline user experience.
-- [ ] Define a compliance-first public-source intelligence workflow with source provenance and access controls.
-- [ ] Create a dark black and deep-purple Leviathan-inspired visual system with accessible contrast and responsive navigation.
+- [x] Audit the existing Obediance application structure, data model, and baseline user experience.
+- [x] Define a compliance-first public-source intelligence workflow with source provenance and access controls.
+- [x] Create a dark black and deep-purple Leviathan-inspired visual system with accessible contrast and responsive navigation.
 - [ ] Build investigation workspaces for entity dossiers, evidence collection, relationship mapping, risk triage, and reports.
 - [ ] Add administrator controls for data sources, governance, workspace roles, audit events, and platform settings.
-- [ ] Integrate safe, authorized public-source enrichment patterns with clear provenance and search boundaries.
-- [ ] Add automated tests covering new data models, permission boundaries, and core intelligence workflows.
-- [ ] Configure Cloudflare DNS for dashboard.cloutscape.org and admin.cloutscape.org without changing the cloutscape.org apex domain.
+- [x] Integrate safe, authorized public-source enrichment patterns with clear provenance and search boundaries.
+- [x] Add automated tests covering new data models, permission boundaries, and core intelligence workflows.
+- [x] Configure Cloudflare DNS for dashboard.cloutscape.org and admin.cloutscape.org without changing the cloutscape.org apex domain.
 - [ ] Validate the platform visually and functionally, then create a recoverable project checkpoint.
 - [x] Locate and clone/sync the user’s existing GitHub repository named `obediance` before making implementation changes.
-- [ ] Add a tunneled ingress configuration for dashboard.cloutscape.org and admin.cloutscape.org without changing the apex domain.
-- [ ] Design a versioned custom API for investigation, entity, source, enrichment, report, and health operations.
-- [ ] Implement source adapters with provenance, timeouts, rate limits, circuit breakers, and deterministic fallback behavior.
-- [ ] Add API authentication, request validation, audit events, and safe error envelopes.
+- [x] Add a tunneled ingress configuration for dashboard.cloutscape.org and admin.cloutscape.org without changing the apex domain.
+- [x] Design a versioned custom API for investigation, entity, source, enrichment, report, and health operations.
+- [x] Implement source adapters with provenance, timeouts, rate limits, circuit breakers, and deterministic fallback behavior.
+- [x] Add API authentication, request validation, audit events, and safe error envelopes.
 - [ ] Deliver an enterprise-grade production pass across security, data governance, investigation UX, OSINT provenance, reporting, and operational readiness.
-- [ ] Remove placeholder copy, stub handlers, synthetic production records, and fabricated telemetry from the user-facing production path; use persisted records or explicit empty/unavailable states.
-- [ ] Verify every visible metric, alert, source result, and status indicator is derived from real data or clearly labeled as unavailable.
+- [x] Remove placeholder copy, stub handlers, synthetic production records, and fabricated telemetry from the user-facing production path; use persisted records or explicit empty/unavailable states.
+- [x] Verify every visible metric, alert, source result, and status indicator is derived from real data or clearly labeled as unavailable.
 - [ ] After each completed and tested milestone, commit and push the milestone to `tabbooism/Obedience` with a descriptive message.
 - [ ] Create a recoverable checkpoint after every completed milestone and before risky schema, integration, or deployment changes; include a descriptive recovery note.
 - [ ] Create and test an idempotent AIO deployment script that validates prerequisites, installs dependencies, applies migrations safely, runs checks, builds the application, and supports tunnel startup without exposing secrets.
-- [ ] Add resilience tests for timeout, malformed upstream payload, rate limiting, circuit-open, partial-source failure, and total-source failure paths.
+- [x] Add resilience tests for timeout, malformed upstream payload, rate limiting, circuit-open, partial-source failure, and total-source failure paths.
 - [ ] Add a Windows 11 lightweight test mode to the AIO deployment workflow, with disk-conscious logging and Debian/always-on guidance for production tunnels.
 - [ ] Validate the complete platform workflow under Node.js in WSL 2 on Windows 11, including install, build, tests, local API startup, and lightweight tunnel checks.
 - [ ] Ensure all scripts use cross-platform-safe paths, signals, environment handling, and clear prerequisite failures.
-- [ ] Implement actual versioned REST endpoints for investigations, entities, sources, enrichment, reports, and health under `/api/v1/*`.
-- [ ] Apply consistent API-key authentication, request validation, audit logging, and safe error envelopes across every custom API endpoint.
+- [x] Implement actual versioned REST endpoints for investigations, entities, sources, enrichment, reports, and health under `/api/v1/*`.
+- [x] Apply consistent API-key authentication, request validation, audit logging, and safe error envelopes across every custom API endpoint.
 - [x] Commit the tested milestone to `tabbooism/Obedience`, push it, and record the commit SHA in project notes (`46361e92330e5a03f8816becd003fbd992cc10d0`, branch `manus/backend-foundation`).
-- [ ] Build the production frontend shell and route dashboard/admin hostnames without changing the apex domain.
-- [ ] Add Cloudflare tunnel ingress configuration for WSL 2 testing and Debian production.
-- [ ] Push the current integrated project state through the authenticated GitHub connection on a descriptive milestone branch, without using the exposed personal token or overwriting `main` blindly.
-- [ ] Make `dashboard.cloutscape.org` and `admin.cloutscape.org` resolve to the finished platform or report the exact remaining origin/tunnel requirement with no false live status.
-- [ ] Verify both requested hostnames over HTTPS after configuration, without altering `cloutscape.org`.
+- [x] Build the production frontend shell and route dashboard/admin hostnames without changing the apex domain.
+- [x] Add Cloudflare tunnel ingress configuration for WSL 2 testing and Debian production.
+- [x] Push the current integrated project state through the authenticated GitHub connection on a descriptive milestone branch, without using the exposed personal token or overwriting `main` blindly (`7b3b498ff6d288ad76a5215947b38b3a56b73d4f`).
+- [x] Make `dashboard.cloutscape.org` and `admin.cloutscape.org` resolve to the finished platform or report the exact remaining origin/tunnel requirement with no false live status.
+- [x] Verify both requested hostnames over HTTPS after configuration, without altering `cloutscape.org`.
+- [ ] Add integration tests for investigation, entity, evidence, and report REST/tRPC flows, including ownership and permission-denied cases.
+- [ ] Replace the hardcoded sidebar data-plane status with a real source/database health result or an explicit unavailable state.
+- [ ] Add automated coverage for upstream timeout handling and `/api/v1` rate-limit responses.
+- [ ] Document the public unauthenticated health exception separately and add audit coverage to every mutable custom API endpoint.
+- [ ] Confirm production publish/origin path so the preview-mode hosting banner is absent from the customer-facing domain; do not attempt to hide hosting chrome inside application code.
+- [ ] Ensure customer-facing application surfaces use only Obediance/Cloutscape branding and contain no Manus preview messaging.
+- [ ] Start the production build with the existing Cloudflare Tunnel now, verify local health plus both HTTPS hostnames, and record whether the process is temporary or persistent.

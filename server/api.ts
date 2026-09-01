@@ -32,6 +32,10 @@ function clientKey(req: Request) {
   return req.header("cf-connecting-ip") || req.ip || "unknown-client";
 }
 
+export function resetApiRateLimits() {
+  requests.clear();
+}
+
 function rateLimit(req: Request) {
   const key = clientKey(req);
   const now = Date.now();
