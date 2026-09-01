@@ -21,6 +21,9 @@ export type OsintFinding = {
 
 const DEFAULT_TIMEOUT_MS = 8_000;
 const MAX_RETRIES = 2;
+const CIRCUIT_FAILURE_LIMIT = 3;
+const CIRCUIT_COOLDOWN_MS = 30_000;
+const circuits = new Map<string, { failures: number; openUntil: number }>();
 
 async function fetchJson<T>(url: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
   let lastError: unknown;
@@ -46,10 +49,17 @@ async function fetchJson<T>(url: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promis
 
 async function runSource<T>(source: string, work: () => Promise<T[]>): Promise<SourceResult<T>> {
   const started = Date.now();
+  const circuit = circuits.get(source);
+  if (circuit && circuit.openUntil > Date.now()) {
+    return { source, status: "unavailable", latencyMs: 0, items: [], error: "CIRCUIT_OPEN" };
+  }
   try {
     const items = await work();
+    circuits.delete(source);
     return { source, status: "ok", latencyMs: Date.now() - started, items };
   } catch (error) {
+    const failures = (circuits.get(source)?.failures ?? 0) + 1;
+    circuits.set(source, { failures, openUntil: failures >= CIRCUIT_FAILURE_LIMIT ? Date.now() + CIRCUIT_COOLDOWN_MS : 0 });
     return {
       source,
       status: "unavailable",
@@ -58,6 +68,10 @@ async function runSource<T>(source: string, work: () => Promise<T[]>): Promise<S
       error: error instanceof Error ? error.message : "UPSTREAM_REQUEST_FAILED",
     };
   }
+}
+
+export function resetSourceCircuits() {
+  circuits.clear();
 }
 
 const kevUrl = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";

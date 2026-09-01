@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import {
   InsertIntelligenceEntity,
   InsertIntelligenceEvidence,
@@ -85,8 +85,8 @@ export async function getDashboardCounts(ownerId: number) {
   if (investigationIds.length === 0) {
     return { investigations: 0, entities: 0, evidence: 0, sources: (await listSources(ownerId)).length };
   }
-  const entities = await db.select({ id: intelligenceEntities.id }).from(intelligenceEntities).where(eq(intelligenceEntities.investigationId, investigationIds[0]));
-  const evidence = await db.select({ id: intelligenceEvidence.id }).from(intelligenceEvidence).where(eq(intelligenceEvidence.investigationId, investigationIds[0]));
+  const entities = await db.select({ id: intelligenceEntities.id }).from(intelligenceEntities).where(inArray(intelligenceEntities.investigationId, investigationIds));
+  const evidence = await db.select({ id: intelligenceEvidence.id }).from(intelligenceEvidence).where(inArray(intelligenceEvidence.investigationId, investigationIds));
   return { investigations: investigationIds.length, entities: entities.length, evidence: evidence.length, sources: (await listSources(ownerId)).length };
 }
 

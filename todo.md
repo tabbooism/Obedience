@@ -30,3 +30,5 @@
 - [ ] Build the production frontend shell and route dashboard/admin hostnames without changing the apex domain.
 - [ ] Add Cloudflare tunnel ingress configuration for WSL 2 testing and Debian production.
 - [ ] Push the current integrated project state through the authenticated GitHub connection on a descriptive milestone branch, without using the exposed personal token or overwriting `main` blindly.
+- [ ] Make `dashboard.cloutscape.org` and `admin.cloutscape.org` resolve to the finished platform or report the exact remaining origin/tunnel requirement with no false live status.
+- [ ] Verify both requested hostnames over HTTPS after configuration, without altering `cloutscape.org`.
