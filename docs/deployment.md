@@ -8,6 +8,22 @@ The application is a Node.js 20+ full-stack service with a Vite frontend, Expres
 
 From PowerShell, run `wsl` and then change into the Linux-mounted repository directory. Execute `bash scripts/aio-deploy.sh` for the native Linux workflow, or run `powershell -ExecutionPolicy Bypass -File scripts/aio-deploy.ps1` from the repository root. The script checks Node.js and pnpm, installs the lockfile, applies migrations when `DATABASE_URL` is present, runs type checks and tests, and builds the application. The script intentionally stops when a required database or tunnel credential is missing. The repository uses pnpm 10.4.1 because its lockfile is format 9; older pnpm versions must not be used.
 
+## Local mock authentication
+
+For local-only testing without a real OAuth portal, run `bash scripts/dev-mock.sh`. This starts the app with a synthetic test identity and administrator role, allowing the dashboard, OSINT, evidence, audit, and admin surfaces to be exercised without external login. The mock path is guarded by both `NODE_ENV !== production` and `OBEDIANCE_MOCK_AUTH=1`; it cannot activate in a production start.
+
+The identity can be customized through local environment variables when needed:
+
+```bash
+OBEDIANCE_MOCK_AUTH=1 \
+OBEDIANCE_MOCK_AUTH_ROLE=admin \
+OBEDIANCE_MOCK_NAME="Local Test Operator" \
+OBEDIANCE_MOCK_EMAIL="operator@example.test" \
+corepack pnpm dev
+```
+
+Use `OBEDIANCE_MOCK_AUTH_ROLE=user` to test non-administrator denial states. Never set `OBEDIANCE_MOCK_AUTH=1` in a production environment, and never use real personal data for a mock identity.
+
 If installation reports `ERR_PNPM_LOCKFILE_BREAKING_CHANGE`, repair the local environment with:
 
 ```bash
@@ -19,7 +35,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-If Corepack is unavailable, use `npx --yes pnpm@10.4.1 install --frozen-lockfile` instead. Do not use `--force` unless you intentionally want to regenerate and review the lockfile; the normal fix is to use pnpm 10.4.1. The AIO deployment script now checks this version before attempting installation.
+If Corepack is unavailable, or it fails with `Cannot find matching keyid`, use `npx --yes pnpm@10.4.1 install --frozen-lockfile` instead. Do not use `--force` unless you intentionally want to regenerate and review the lockfile; the normal fix is to use pnpm 10.4.1. The AIO deployment script now checks this version before attempting installation, and `scripts/dev-mock.sh` falls back to the explicit npx command when Corepack is unusable.
 
 The Windows device is appropriate for development and tunnel testing. It should not be treated as the sole production host because Windows sleep, restart, or WSL shutdown will interrupt the tunnel. For production, use an always-on Debian host and run the same Linux script from a service manager.
 
