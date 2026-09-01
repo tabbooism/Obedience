@@ -45,7 +45,7 @@ pnpm build
 if [ "${START_TUNNEL:-0}" = "1" ]; then
   command -v cloudflared >/dev/null 2>&1 || fail "cloudflared is required when START_TUNNEL=1. Install it in WSL 2 or Debian."
   [ -n "${CLOUDFLARE_TUNNEL_TOKEN:-}" ] || fail "CLOUDFLARE_TUNNEL_TOKEN is required when START_TUNNEL=1. Do not commit it."
-  : "${PORT:=3000}"
+  : "${PORT:=3100}"
   log "Starting the production server for the tunnel."
   NODE_ENV=production pnpm start >"${OBEDIANCE_RUNTIME_LOG:-/tmp/obediance-app.log}" 2>&1 &
   APP_PID=$!

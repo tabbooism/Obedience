@@ -12,12 +12,12 @@ The Windows device is appropriate for development and tunnel testing. It should 
 
 ## Cloudflare Tunnel
 
-The repository includes `deploy/cloudflared/ingress.yml` with exactly two hostname routes:
+The repository includes `deploy/cloudflared/ingress.yml` with the two Obediance hostname routes plus preserved legacy `ops` and `profiler` routes:
 
 | Hostname | Origin |
 | --- | --- |
-| `dashboard.cloutscape.org` | `http://127.0.0.1:3000` |
-| `admin.cloutscape.org` | `http://127.0.0.1:3000` |
+| `dashboard.cloutscape.org` | `http://127.0.0.1:3100` |
+| `admin.cloutscape.org` | `http://127.0.0.1:3100` |
 
 Create or select a Cloudflare Tunnel in the Cloudflare dashboard, attach these public hostnames to the tunnel, and install the connector on the Debian host or WSL 2 test environment. The connector token must be supplied only as the runtime variable `CLOUDFLARE_TUNNEL_TOKEN`; it must never be committed. Start the application first, then start `cloudflared tunnel run --token "$CLOUDFLARE_TUNNEL_TOKEN"`. The application identifies the admin plane from the `admin.cloutscape.org` hostname and still enforces administrator authorization for admin-only procedures.
 
@@ -29,4 +29,4 @@ The versioned API is available under `/api/v1`. `GET /api/v1/health` is public. 
 
 ## Operations checklist
 
-Before making a live DNS change, verify that the application build and tests pass, the database is reachable, the Cloudflare tunnel connector can reach `127.0.0.1:3000`, and the hostname routes do not include the apex domain. After routing, check both HTTPS hostnames and then inspect application logs for authentication and upstream failures. Keep the Cloudflare dashboard as the source of truth for tunnel credentials and hostname status.
+Before making a live DNS change, verify that the application build and tests pass, the database is reachable, the Cloudflare tunnel connector can reach `127.0.0.1:3100`, and the hostname routes do not include the apex domain. After routing, check both HTTPS hostnames and then inspect application logs for authentication and upstream failures. Keep the Cloudflare dashboard as the source of truth for tunnel credentials and hostname status.
