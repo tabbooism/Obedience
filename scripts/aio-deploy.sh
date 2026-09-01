@@ -16,9 +16,17 @@ trap cleanup EXIT
 trap 'fail "Deployment stopped at line $LINENO."' ERR
 
 command -v node >/dev/null 2>&1 || fail "Node.js is required. Install Node.js 20+ in WSL 2 or Debian."
-command -v pnpm >/dev/null 2>&1 || fail "pnpm is required. Enable it with corepack or install it in the active Linux environment."
-PNPM_MAJOR="$(pnpm --version | cut -d. -f1)"
-[ "$PNPM_MAJOR" -ge 10 ] 2>/dev/null || fail "pnpm 10+ is required for this repository lockfile. Run: corepack enable && corepack prepare pnpm@10.4.1 --activate"
+PNPM_CMD=(pnpm)
+if command -v pnpm >/dev/null 2>&1 && pnpm --version >/dev/null 2>&1 && [ "$(pnpm --version | cut -d. -f1)" -ge 10 ] 2>/dev/null; then
+  PNPM_CMD=(pnpm)
+elif command -v corepack >/dev/null 2>&1 && corepack pnpm --version >/dev/null 2>&1; then
+  PNPM_CMD=(corepack pnpm)
+elif command -v npx >/dev/null 2>&1; then
+  log "Using npx pnpm@10.4.1 because the system pnpm/Corepack runner is incompatible."
+  PNPM_CMD=(npx --yes pnpm@10.4.1)
+else
+  fail "pnpm 10.4.1 is required for this repository lockfile. Install Corepack or npx."
+fi
 node -e 'const major=Number(process.versions.node.split(".")[0]); if (major < 20) process.exit(1)' || fail "Node.js 20+ is required."
 
 if grep -qi microsoft /proc/version 2>/dev/null; then
@@ -29,27 +37,27 @@ fi
 
 if [ "${OBEDIANCE_SKIP_INSTALL:-0}" != "1" ]; then
   log "Installing locked dependencies."
-  pnpm install --frozen-lockfile
+  "${PNPM_CMD[@]}" install --frozen-lockfile
 fi
 
 if [ "${OBEDIANCE_SKIP_MIGRATION:-0}" != "1" ]; then
   [ -n "${DATABASE_URL:-}" ] || fail "DATABASE_URL is required for migrations. Set it in the environment, never in source control."
   log "Applying committed database migrations."
-  pnpm drizzle-kit migrate
+  "${PNPM_CMD[@]}" drizzle-kit migrate
 fi
 
 log "Running type checks and tests."
-pnpm check
-pnpm test
+"${PNPM_CMD[@]}" check
+"${PNPM_CMD[@]}" test
 log "Building application artifacts."
-pnpm build
+"${PNPM_CMD[@]}" build
 
 if [ "${START_TUNNEL:-0}" = "1" ]; then
   command -v cloudflared >/dev/null 2>&1 || fail "cloudflared is required when START_TUNNEL=1. Install it in WSL 2 or Debian."
   [ -n "${CLOUDFLARE_TUNNEL_TOKEN:-}" ] || fail "CLOUDFLARE_TUNNEL_TOKEN is required when START_TUNNEL=1. Do not commit it."
   : "${PORT:=3100}"
   log "Starting the production server for the tunnel."
-  NODE_ENV=production pnpm start >"${OBEDIANCE_RUNTIME_LOG:-/tmp/obediance-app.log}" 2>&1 &
+  NODE_ENV=production "${PNPM_CMD[@]}" start >"${OBEDIANCE_RUNTIME_LOG:-/tmp/obediance-app.log}" 2>&1 &
   APP_PID=$!
   for attempt in 1 2 3 4 5 6 7 8 9 10; do
     if curl -fsS --max-time 2 "http://127.0.0.1:${PORT}/api/v1/health" >/dev/null 2>&1; then break; fi
@@ -62,7 +70,7 @@ if [ "${START_TUNNEL:-0}" = "1" ]; then
   wait "$APP_PID" "$TUNNEL_PID"
 elif [ "${START_APP:-0}" = "1" ]; then
   log "Starting application. Press Ctrl+C to stop."
-  NODE_ENV=production pnpm start
+  NODE_ENV=production "${PNPM_CMD[@]}" start
 else
   log "Build complete. Set START_APP=1 to run the production server or START_TUNNEL=1 to run the app behind Cloudflare Tunnel."
 fi
