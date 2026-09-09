@@ -4,6 +4,7 @@ import {
   GraphNode, 
   UserRole 
 } from "../../types";
+import { apiClient } from "../../utils/apiClient";
 import { 
   Flame, 
   Radio, 
@@ -67,8 +68,8 @@ export const ThreatFeed: React.FC<ThreatFeedProps> = ({
   const fetchLiveFeeds = async () => {
     setIsLoadingLiveFeed(true);
     try {
-      const res = await fetch("/api/live/threat-feed");
-      const data = await res.json();
+      const res = await apiClient.get("/api/live/threat-feed");
+      const data = res.data;
       if (data.feeds && Array.isArray(data.feeds)) {
         data.feeds.forEach((feed: ThreatFeedItem) => {
           // Avoid duplicate IDs

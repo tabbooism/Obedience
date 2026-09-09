@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import * as d3 from "d3";
 import { 
   GraphNode, 
   GraphEdge, 
@@ -6,11 +7,19 @@ import {
   UserRole 
 } from "../../types";
 import { 
-  applyForceDirectedLayout, 
-  applyCircularLayout, 
   detectGraphAnomalies 
 } from "../../utils/crypto";
+import { 
+  createD3ForceSimulation, 
+  defaultSimulationConfig, 
+  SimulationConfig, 
+  typeClusterCenters,
+  D3SimulationNode,
+  D3SimulationLink 
+} from "./d3ForceEngine";
+import { calculateClusterHulls, typeColorMap } from "./clusterHulls";
 import { NodeInspector } from "./NodeInspector";
+import { apiClient } from "../../utils/apiClient";
 import { 
   User, 
   Building, 
@@ -26,22 +35,19 @@ import {
   ZoomOut, 
   RotateCcw, 
   Play, 
+  Pause,
   CircleDot, 
   ShieldAlert, 
   SlidersHorizontal, 
-  Download, 
-  Filter,
-  Layers,
   Sparkles,
   Search,
-  Eye,
   Activity,
   Radar,
-  Radio,
-  ExternalLink,
-  Lock,
-  Trash2,
-  Cpu
+  Flame,
+  Layers,
+  Unlink,
+  Target,
+  Maximize2
 } from "lucide-react";
 
 interface RelationshipGraphProps {
@@ -52,6 +58,8 @@ interface RelationshipGraphProps {
   userRole: UserRole;
   onOpenAICopilotWithPrompt?: (prompt: string) => void;
   searchFilter: string;
+  onOpenAnomalySuite?: () => void;
+  onOpenMetamorphicTester?: (targetDomain?: string) => void;
 }
 
 export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
@@ -62,6 +70,8 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
   userRole,
   onOpenAICopilotWithPrompt,
   searchFilter,
+  onOpenAnomalySuite,
+  onOpenMetamorphicTester,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -70,6 +80,13 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  // D3 Simulation States
+  const [isLivePhysicsActive, setIsLivePhysicsActive] = useState<boolean>(true);
+  const [showPhysicsDrawer, setShowPhysicsDrawer] = useState<boolean>(false);
+  const [showClusterHulls, setShowClusterHulls] = useState<boolean>(true);
+  const [simConfig, setSimConfig] = useState<SimulationConfig>(defaultSimulationConfig);
+  const [activeLayoutPreset, setActiveLayoutPreset] = useState<"force" | "cluster" | "concentric" | "radial">("force");
 
   // Dragging single node
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
@@ -107,6 +124,13 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
   const [newNodeRisk, setNewNodeRisk] = useState(65);
   const [newNodeClassification, setNewNodeClassification] = useState<any>("Secret");
 
+  // D3 Simulation Instance Ref
+  const simulationRef = useRef<d3.Simulation<D3SimulationNode, D3SimulationLink> | null>(null);
+  const d3NodesRef = useRef<D3SimulationNode[]>([]);
+  const d3EdgesRef = useRef<D3SimulationLink[]>([]);
+  const nodesStateRef = useRef<GraphNode[]>(nodes);
+  nodesStateRef.current = nodes;
+
   // Computed Anomalies
   const anomalies = useMemo(() => detectGraphAnomalies(nodes, edges), [nodes, edges]);
   const anomalyNodeIds = useMemo(() => new Set(anomalies.map((a) => a.nodeId)), [anomalies]);
@@ -117,6 +141,147 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
       setSelectedNodeId(nodes[0].id);
     }
   }, [nodes, selectedNodeId]);
+
+  // Initialize and maintain D3 Force Simulation
+  useEffect(() => {
+    if (nodes.length === 0) return;
+
+    const width = containerRef.current?.clientWidth || 900;
+    const height = containerRef.current?.clientHeight || 600;
+
+    // Create D3 Node and Link instances preserving coordinates
+    const d3Nodes: D3SimulationNode[] = nodes.map((n) => {
+      const existing = d3NodesRef.current.find((dn) => dn.id === n.id);
+      return {
+        ...n,
+        x: existing?.x ?? n.x,
+        y: existing?.y ?? n.y,
+        vx: existing?.vx ?? n.vx ?? 0,
+        vy: existing?.vy ?? n.vy ?? 0,
+        fx: existing?.fx ?? null,
+        fy: existing?.fy ?? null,
+      };
+    });
+
+    const d3Edges: D3SimulationLink[] = edges.map((e) => ({
+      ...e,
+      source: e.source,
+      target: e.target,
+    }));
+
+    d3NodesRef.current = d3Nodes;
+    d3EdgesRef.current = d3Edges;
+
+    // Stop existing simulation if active
+    if (simulationRef.current) {
+      simulationRef.current.stop();
+    }
+
+    let lastTickTime = 0;
+    const simulation = createD3ForceSimulation(
+      d3Nodes,
+      d3Edges,
+      width,
+      height,
+      simConfig,
+      () => {
+        // Throttle updates to ~30fps to avoid React render starvation
+        const now = performance.now();
+        if (now - lastTickTime > 32) {
+          lastTickTime = now;
+          const updated = d3NodesRef.current.map((dn) => ({
+            ...nodesStateRef.current.find((n) => n.id === dn.id)!,
+            x: dn.x,
+            y: dn.y,
+            vx: dn.vx,
+            vy: dn.vy,
+          })).filter(Boolean);
+          if (updated.length === nodesStateRef.current.length) {
+            onUpdateNodes(updated);
+          }
+        }
+      }
+    );
+
+    simulationRef.current = simulation;
+
+    if (!isLivePhysicsActive) {
+      simulation.stop();
+    }
+
+    return () => {
+      simulation.stop();
+    };
+  }, [nodes.length, edges.length, simConfig, isLivePhysicsActive]);
+
+  // Handle Dynamic Layout Presets
+  const handleApplyLayoutPreset = (preset: "force" | "cluster" | "concentric" | "radial") => {
+    setActiveLayoutPreset(preset);
+    const width = containerRef.current?.clientWidth || 900;
+    const height = containerRef.current?.clientHeight || 600;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    if (preset === "radial") {
+      const radius = Math.min(width, height) * 0.36;
+      const angleStep = (2 * Math.PI) / (nodes.length || 1);
+      const rearranged = nodes.map((node, index) => {
+        const angle = index * angleStep;
+        return {
+          ...node,
+          x: cx + radius * Math.cos(angle),
+          y: cy + radius * Math.sin(angle),
+        };
+      });
+      onUpdateNodes(rearranged);
+      if (simulationRef.current) {
+        simulationRef.current.alpha(0.4).restart();
+      }
+    } else if (preset === "concentric") {
+      // Stratify by Risk Score: High risk (>=80) in center, low risk on perimeter
+      const rearranged = nodes.map((node, idx) => {
+        const riskNorm = (100 - node.riskScore) / 100; // 0 (high risk) to 1 (low risk)
+        const ringRadius = 70 + riskNorm * 220;
+        const angle = (idx * (2 * Math.PI)) / nodes.length;
+        return {
+          ...node,
+          x: cx + ringRadius * Math.cos(angle),
+          y: cy + ringRadius * Math.sin(angle),
+        };
+      });
+      onUpdateNodes(rearranged);
+      if (simulationRef.current) {
+        simulationRef.current.alpha(0.4).restart();
+      }
+    } else if (preset === "cluster") {
+      setSimConfig((prev) => ({ ...prev, clusterByType: true, chargeStrength: -450 }));
+      if (simulationRef.current) {
+        simulationRef.current.alpha(1).restart();
+      }
+    } else {
+      // Organic Spring Force
+      setSimConfig((prev) => ({ ...prev, clusterByType: false, chargeStrength: -380 }));
+      if (simulationRef.current) {
+        simulationRef.current.alpha(1).restart();
+      }
+    }
+  };
+
+  const handleReheatSimulation = () => {
+    if (simulationRef.current) {
+      simulationRef.current.alpha(1).restart();
+    }
+  };
+
+  const handleUnpinAllNodes = () => {
+    d3NodesRef.current.forEach((d) => {
+      d.fx = null;
+      d.fy = null;
+    });
+    if (simulationRef.current) {
+      simulationRef.current.alpha(0.6).restart();
+    }
+  };
 
   // Node Icons dictionary
   const getNodeIcon = (type: EntityType) => {
@@ -136,19 +301,19 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
 
   const getNodeColor = (node: GraphNode) => {
     if (node.isFlagged || node.riskScore >= 85) return {
-      bg: "fill-rose-950/80 stroke-rose-500",
+      bg: "fill-rose-950/90 stroke-rose-500",
       glow: "rgba(244, 63, 94, 0.4)",
       badgeBg: "bg-rose-500 text-white",
       text: "text-rose-300"
     };
     if (node.riskScore >= 60) return {
-      bg: "fill-amber-950/80 stroke-amber-500",
+      bg: "fill-amber-950/90 stroke-amber-500",
       glow: "rgba(245, 158, 11, 0.3)",
       badgeBg: "bg-amber-500 text-slate-950",
       text: "text-amber-300"
     };
     return {
-      bg: "fill-cyan-950/80 stroke-cyan-500",
+      bg: "fill-cyan-950/90 stroke-cyan-500",
       glow: "rgba(6, 182, 212, 0.3)",
       badgeBg: "bg-cyan-500 text-slate-950",
       text: "text-cyan-300"
@@ -177,6 +342,12 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
     return edges.filter((e) => filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target));
   }, [edges, filteredNodeIds]);
 
+  // Computed Cluster Hulls for Visual Grouping
+  const clusterHulls = useMemo(() => {
+    if (!showClusterHulls || filteredNodes.length < 3) return [];
+    return calculateClusterHulls(filteredNodes);
+  }, [filteredNodes, showClusterHulls]);
+
   // Selected node object
   const selectedNode = useMemo(() => {
     return nodes.find((n) => n.id === selectedNodeId) || null;
@@ -186,7 +357,7 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
   const handleZoom = (factor: number) => {
     setTransform((prev) => ({
       ...prev,
-      scale: Math.min(Math.max(prev.scale * factor, 0.3), 3.5),
+      scale: Math.min(Math.max(prev.scale * factor, 0.25), 4.0),
     }));
   };
 
@@ -215,13 +386,34 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
       const mouseX = (e.clientX - svgRect.left - transform.x) / transform.scale;
       const mouseY = (e.clientY - svgRect.top - transform.y) / transform.scale;
 
+      // Update in D3 simulation to drag with dynamic force physics
+      const d3Node = d3NodesRef.current.find((dn) => dn.id === draggedNodeId);
+      if (d3Node) {
+        d3Node.fx = mouseX - dragOffset.x;
+        d3Node.fy = mouseY - dragOffset.y;
+        if (simulationRef.current) {
+          simulationRef.current.alphaTarget(0.3).restart();
+        }
+      }
+
       onUpdateNodes(
-        nodes.map((n) => (n.id === draggedNodeId ? { ...n, x: mouseX - dragOffset.x, y: mouseY - dragOffset.y } : n))
+        nodes.map((n) =>
+          n.id === draggedNodeId ? { ...n, x: mouseX - dragOffset.x, y: mouseY - dragOffset.y } : n
+        )
       );
     }
   };
 
   const handleMouseUpSvg = () => {
+    if (draggedNodeId && simulationRef.current) {
+      const d3Node = d3NodesRef.current.find((dn) => dn.id === draggedNodeId);
+      if (d3Node) {
+        // Release fixed position unless user explicitly pinned it
+        d3Node.fx = null;
+        d3Node.fy = null;
+      }
+      simulationRef.current.alphaTarget(0);
+    }
     setIsPanning(false);
     setDraggedNodeId(null);
   };
@@ -251,14 +443,33 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
         const touchX = (touch.clientX - svgRect.left - transform.x) / transform.scale;
         const touchY = (touch.clientY - svgRect.top - transform.y) / transform.scale;
 
+        const d3Node = d3NodesRef.current.find((dn) => dn.id === draggedNodeId);
+        if (d3Node) {
+          d3Node.fx = touchX - dragOffset.x;
+          d3Node.fy = touchY - dragOffset.y;
+          if (simulationRef.current) {
+            simulationRef.current.alphaTarget(0.3).restart();
+          }
+        }
+
         onUpdateNodes(
-          nodes.map((n) => (n.id === draggedNodeId ? { ...n, x: touchX - dragOffset.x, y: touchY - dragOffset.y } : n))
+          nodes.map((n) =>
+            n.id === draggedNodeId ? { ...n, x: touchX - dragOffset.x, y: touchY - dragOffset.y } : n
+          )
         );
       }
     }
   };
 
   const handleTouchEndSvg = () => {
+    if (draggedNodeId && simulationRef.current) {
+      const d3Node = d3NodesRef.current.find((dn) => dn.id === draggedNodeId);
+      if (d3Node) {
+        d3Node.fx = null;
+        d3Node.fy = null;
+      }
+      simulationRef.current.alphaTarget(0);
+    }
     setIsPanning(false);
     setDraggedNodeId(null);
   };
@@ -339,28 +550,20 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
     if (selectedNodeId === id) setSelectedNodeId(null);
   };
 
-  // Layout Trigger Handlers
-  const handleApplyForceLayout = () => {
-    const arranged = applyForceDirectedLayout(nodes, edges, 900, 600);
-    onUpdateNodes(arranged);
-  };
-
-  const handleApplyCircularLayout = () => {
-    const arranged = applyCircularLayout(nodes, 900, 600);
-    onUpdateNodes(arranged);
-  };
-
   // Create Manual Node Handler
   const handleCreateNode = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNodeLabel.trim()) return;
 
+    const width = containerRef.current?.clientWidth || 900;
+    const height = containerRef.current?.clientHeight || 600;
+
     const newNode: GraphNode = {
       id: `node-${Date.now()}`,
       label: newNodeLabel.trim(),
       type: newNodeType,
-      x: 450 + (Math.random() * 80 - 40),
-      y: 300 + (Math.random() * 80 - 40),
+      x: width / 2 + (Math.random() * 80 - 40),
+      y: height / 2 + (Math.random() * 80 - 40),
       riskScore: newNodeRisk,
       confidence: 88,
       classification: newNodeClassification,
@@ -375,6 +578,10 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
     setSelectedNodeId(newNode.id);
     setNewNodeLabel("");
     setShowAddModal(false);
+
+    if (simulationRef.current) {
+      simulationRef.current.alpha(0.8).restart();
+    }
   };
 
   // Live Target Scanner Handler (Real DNS / HTTPS Recon)
@@ -386,28 +593,26 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
     setScanResult(null);
 
     try {
-      const res = await fetch("/api/live/scan-target", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: targetInput.trim() }),
+      const res = await apiClient.post("/api/live/scan-target", {
+        target: targetInput.trim(),
       });
 
-      const data = await res.json();
+      const data = res.data;
       setScanResult(data);
 
       if (data.success) {
-        // Automatically create graph nodes for the target, resolved IPs, and SSL
         const targetNodeId = `node-target-${Date.now()}`;
         const newNodesToAdd: GraphNode[] = [];
         const newEdgesToAdd: GraphEdge[] = [];
+        const cx = (containerRef.current?.clientWidth || 900) / 2;
+        const cy = (containerRef.current?.clientHeight || 600) / 2;
 
-        // Primary Host Node
         const targetNode: GraphNode = {
           id: targetNodeId,
           label: data.host,
           type: "domain",
-          x: 450,
-          y: 280,
+          x: cx,
+          y: cy - 40,
           riskScore: data.riskScore || 30,
           confidence: 98,
           classification: "Secret",
@@ -425,7 +630,6 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
         };
         newNodesToAdd.push(targetNode);
 
-        // Resolved IP Nodes
         if (data.dns?.a && data.dns.a.length > 0) {
           data.dns.a.slice(0, 3).forEach((ip: string, idx: number) => {
             const ipNodeId = `node-ip-${Date.now()}-${idx}`;
@@ -433,8 +637,8 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
               id: ipNodeId,
               label: ip,
               type: "ip_address",
-              x: 320 + idx * 100,
-              y: 420,
+              x: cx - 120 + idx * 80,
+              y: cy + 80,
               riskScore: 35,
               confidence: 99,
               classification: "Confidential",
@@ -459,15 +663,14 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
           });
         }
 
-        // SSL Certificate Node
         if (data.ssl) {
           const sslNodeId = `node-ssl-${Date.now()}`;
           const sslNode: GraphNode = {
             id: sslNodeId,
             label: `SSL: ${data.ssl.issuer?.O || data.ssl.issuer?.CN || "TLS Authority"}`,
             type: "digital_key",
-            x: 600,
-            y: 380,
+            x: cx + 120,
+            y: cy + 40,
             riskScore: 20,
             confidence: 95,
             classification: "Secret",
@@ -494,6 +697,10 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
         onUpdateNodes([...nodes, ...newNodesToAdd]);
         onUpdateEdges([...edges, ...newEdgesToAdd]);
         setSelectedNodeId(targetNodeId);
+
+        if (simulationRef.current) {
+          simulationRef.current.alpha(1).restart();
+        }
       }
     } catch (err) {
       console.error("Scan failed:", err);
@@ -509,23 +716,24 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
 
     setIsSearchingOsint(true);
     try {
-      const res = await fetch("/api/live/osint-search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: osintQuery.trim(), entityType: osintType }),
+      const res = await apiClient.post("/api/live/osint-search", {
+        query: osintQuery.trim(),
+        entityType: osintType,
       });
 
-      const data = await res.json();
+      const data = res.data;
       if (data.intelligence) {
         const intel = data.intelligence;
         const newNodeId = `node-osint-${Date.now()}`;
+        const cx = (containerRef.current?.clientWidth || 900) / 2;
+        const cy = (containerRef.current?.clientHeight || 600) / 2;
 
         const newNode: GraphNode = {
           id: newNodeId,
           label: osintQuery.trim(),
           type: (osintType as EntityType) || "threat_actor",
-          x: 450 + (Math.random() * 100 - 50),
-          y: 300 + (Math.random() * 100 - 50),
+          x: cx + (Math.random() * 100 - 50),
+          y: cy + (Math.random() * 100 - 50),
           riskScore: intel.riskScore || 75,
           confidence: intel.confidence || 90,
           classification: intel.classification || "Secret",
@@ -542,6 +750,10 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
         setSelectedNodeId(newNodeId);
         setShowOsintModal(false);
         setOsintQuery("");
+
+        if (simulationRef.current) {
+          simulationRef.current.alpha(1).restart();
+        }
       }
     } catch (err) {
       console.error("OSINT search failed:", err);
@@ -556,7 +768,7 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
       <div ref={containerRef} className="flex-1 flex flex-col h-full relative overflow-hidden">
         {/* Top Floating Graph Action Bar */}
         <div className="absolute top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 z-20 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 pointer-events-none">
-          {/* Left Controls */}
+          {/* Left Tactical Controls */}
           <div className="flex items-center space-x-1.5 sm:space-x-2 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1 sm:p-1.5 shadow-xl pointer-events-auto max-w-full overflow-x-auto">
             {/* Live Target Recon Button */}
             <button
@@ -614,26 +826,101 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
             </button>
           </div>
 
-          {/* Right Floating Controls: Layout & Filters */}
+          {/* Right Floating Controls: D3 Physics, Layout Presets, & Filters */}
           <div className="flex items-center space-x-1.5 sm:space-x-2 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1 sm:p-1.5 shadow-xl pointer-events-auto max-w-full overflow-x-auto">
-            {/* Force Layout */}
+            {/* D3 Live Physics Active State */}
             <button
-              onClick={handleApplyForceLayout}
-              className="px-2 sm:px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono flex items-center space-x-1 transition-colors whitespace-nowrap"
-              title="Force-Directed Physics Layout"
+              onClick={() => {
+                setIsLivePhysicsActive((prev) => !prev);
+                if (!isLivePhysicsActive && simulationRef.current) {
+                  simulationRef.current.alpha(0.6).restart();
+                } else if (isLivePhysicsActive && simulationRef.current) {
+                  simulationRef.current.stop();
+                }
+              }}
+              className={`px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-mono flex items-center space-x-1.5 transition-all whitespace-nowrap ${
+                isLivePhysicsActive
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold"
+                  : "bg-slate-800 text-slate-400"
+              }`}
+              title="Toggle continuous D3 force-directed physics engine"
             >
-              <Play className="w-3 h-3 text-cyan-400" />
-              <span className="hidden sm:inline">FORCE</span>
+              {isLivePhysicsActive ? <Activity className="w-3.5 h-3.5 animate-pulse text-emerald-400" /> : <Pause className="w-3.5 h-3.5" />}
+              <span>{isLivePhysicsActive ? "PHYSICS ON" : "PAUSED"}</span>
             </button>
 
-            {/* Circular Layout */}
+            {/* Layout Preset Selector */}
+            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5">
+              <button
+                onClick={() => handleApplyLayoutPreset("force")}
+                className={`px-2 py-1 rounded text-[11px] font-mono transition-all ${
+                  activeLayoutPreset === "force"
+                    ? "bg-cyan-500/20 text-cyan-300 font-bold"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                title="Dynamic Force-Directed Spring Layout"
+              >
+                SPRING
+              </button>
+              <button
+                onClick={() => handleApplyLayoutPreset("cluster")}
+                className={`px-2 py-1 rounded text-[11px] font-mono transition-all ${
+                  activeLayoutPreset === "cluster"
+                    ? "bg-cyan-500/20 text-cyan-300 font-bold"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                title="Multi-Foci OSINT Entity Clustering"
+              >
+                CLUSTERS
+              </button>
+              <button
+                onClick={() => handleApplyLayoutPreset("concentric")}
+                className={`px-2 py-1 rounded text-[11px] font-mono transition-all ${
+                  activeLayoutPreset === "concentric"
+                    ? "bg-cyan-500/20 text-cyan-300 font-bold"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                title="Concentric Threat Risk Hierarchy Orbit"
+              >
+                THREAT RINGS
+              </button>
+              <button
+                onClick={() => handleApplyLayoutPreset("radial")}
+                className={`px-2 py-1 rounded text-[11px] font-mono transition-all ${
+                  activeLayoutPreset === "radial"
+                    ? "bg-cyan-500/20 text-cyan-300 font-bold"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                title="Radial Orbital Layout"
+              >
+                RADIAL
+              </button>
+            </div>
+
+            {/* Cluster Hulls Boundaries Toggle */}
             <button
-              onClick={handleApplyCircularLayout}
-              className="px-2 sm:px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono flex items-center space-x-1 transition-colors whitespace-nowrap"
-              title="Radial Circular Layout"
+              onClick={() => setShowClusterHulls((prev) => !prev)}
+              className={`p-1.5 rounded-lg text-xs font-mono transition-all ${
+                showClusterHulls
+                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
+                  : "bg-slate-800 text-slate-400"
+              }`}
+              title="Toggle D3 Convex Hull Cluster Grouping Polygons"
             >
-              <RotateCcw className="w-3 h-3 text-cyan-400" />
-              <span className="hidden sm:inline">RADIAL</span>
+              <Layers className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Physics Parameters Drawer Toggle */}
+            <button
+              onClick={() => setShowPhysicsDrawer((prev) => !prev)}
+              className={`p-1.5 rounded-lg text-xs font-mono transition-all ${
+                showPhysicsDrawer
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                  : "bg-slate-800 text-slate-400"
+              }`}
+              title="Tune D3 Physics Parameters (Repulsion, Link Spring, Collision)"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
             </button>
 
             <div className="h-4 w-px bg-slate-800" />
@@ -651,13 +938,24 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
               <span>{showAnomalies ? `(${anomalies.length})` : "ANOMALIES"}</span>
             </button>
 
+            {onOpenAnomalySuite && (
+              <button
+                onClick={onOpenAnomalySuite}
+                className="px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-mono flex items-center space-x-1 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-bold transition-all whitespace-nowrap cursor-pointer"
+                title="Launch Deep Anomaly Detection Suite (Isolation Forest, LOF, C2 Beaconing)"
+              >
+                <Activity className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">ANOMALY SUITE</span>
+              </button>
+            )}
+
             {/* Filter by Entity Type */}
             <select
               value={selectedTypeFilter}
               onChange={(e) => setSelectedTypeFilter(e.target.value)}
               className="bg-slate-950 border border-slate-800 text-xs text-slate-300 font-mono rounded-lg px-1.5 sm:px-2 py-1.5 focus:outline-none"
             >
-              <option value="all">All</option>
+              <option value="all">All Types ({nodes.length})</option>
               <option value="person">Persons</option>
               <option value="organization">Orgs</option>
               <option value="ip_address">IPs</option>
@@ -668,25 +966,125 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
           </div>
         </div>
 
+        {/* Physics Sliders Tuning Floating Drawer */}
+        {showPhysicsDrawer && (
+          <div className="absolute top-16 right-4 z-30 w-72 bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-2xl p-4 shadow-2xl space-y-3 font-mono text-xs">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div className="flex items-center space-x-1.5 text-slate-200 font-bold">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+                <span>D3 FORCE TUNING</span>
+              </div>
+              <button
+                onClick={() => setShowPhysicsDrawer(false)}
+                className="text-slate-400 hover:text-slate-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Charge Repulsion */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] text-slate-400">
+                <span>Node Repulsion (Charge)</span>
+                <span className="text-cyan-300 font-bold">{simConfig.chargeStrength}</span>
+              </div>
+              <input
+                type="range"
+                min="-900"
+                max="-100"
+                step="20"
+                value={simConfig.chargeStrength}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setSimConfig((p) => ({ ...p, chargeStrength: val }));
+                  handleReheatSimulation();
+                }}
+                className="w-full accent-cyan-500 h-1.5 bg-slate-950 rounded-lg"
+              />
+            </div>
+
+            {/* Link Distance */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] text-slate-400">
+                <span>Link Spring Distance</span>
+                <span className="text-cyan-300 font-bold">{simConfig.linkDistance}px</span>
+              </div>
+              <input
+                type="range"
+                min="50"
+                max="260"
+                step="10"
+                value={simConfig.linkDistance}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setSimConfig((p) => ({ ...p, linkDistance: val }));
+                  handleReheatSimulation();
+                }}
+                className="w-full accent-cyan-500 h-1.5 bg-slate-950 rounded-lg"
+              />
+            </div>
+
+            {/* Collision Buffer */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] text-slate-400">
+                <span>Collision Avoidance Buffer</span>
+                <span className="text-cyan-300 font-bold">{simConfig.collisionRadius}px</span>
+              </div>
+              <input
+                type="range"
+                min="20"
+                max="75"
+                step="5"
+                value={simConfig.collisionRadius}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setSimConfig((p) => ({ ...p, collisionRadius: val }));
+                  handleReheatSimulation();
+                }}
+                className="w-full accent-cyan-500 h-1.5 bg-slate-950 rounded-lg"
+              />
+            </div>
+
+            <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-800">
+              <button
+                onClick={handleReheatSimulation}
+                className="flex-1 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-slate-950 font-bold rounded-lg text-[11px] flex items-center justify-center space-x-1 transition-all"
+              >
+                <Flame className="w-3 h-3" />
+                <span>RE-HEAT</span>
+              </button>
+
+              <button
+                onClick={handleUnpinAllNodes}
+                className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[11px] flex items-center justify-center space-x-1 transition-all"
+                title="Release any fixed node coordinates"
+              >
+                <Unlink className="w-3 h-3" />
+                <span>UNPIN ALL</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Floating Zoom Controls */}
         <div className="absolute bottom-4 left-4 z-20 flex flex-col space-y-1 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1 shadow-xl">
           <button
             onClick={() => handleZoom(1.2)}
-            className="p-2 hover:bg-slate-800 text-slate-300 rounded-lg transition-colors"
+            className="p-2 hover:bg-slate-800 text-slate-300 rounded-lg transition-colors cursor-pointer"
             title="Zoom In"
           >
             <ZoomIn className="w-4 h-4" />
           </button>
           <button
             onClick={() => handleZoom(0.8)}
-            className="p-2 hover:bg-slate-800 text-slate-300 rounded-lg transition-colors"
+            className="p-2 hover:bg-slate-800 text-slate-300 rounded-lg transition-colors cursor-pointer"
             title="Zoom Out"
           >
             <ZoomOut className="w-4 h-4" />
           </button>
           <button
             onClick={handleResetView}
-            className="p-2 hover:bg-slate-800 text-slate-300 rounded-lg transition-colors"
+            className="p-2 hover:bg-slate-800 text-slate-300 rounded-lg transition-colors cursor-pointer"
             title="Reset View"
           >
             <RotateCcw className="w-4 h-4" />
@@ -708,7 +1106,7 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
                   </h3>
                 </div>
                 <p className="text-xs text-slate-400 font-sans leading-relaxed">
-                  Workspace is running in clean Live Operations mode with zero mock data. Ingest real targets, probe live networks, or import real-time threat intelligence.
+                  Workspace is running with dynamic D3-based force-directed physics. Ingest real targets, probe live networks, or import real-time threat intelligence.
                 </p>
               </div>
 
@@ -777,6 +1175,40 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
 
           {/* Scaled & Translated Layer */}
           <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
+            {/* D3 Convex Hull Cluster Grouping Polygons */}
+            {showClusterHulls &&
+              clusterHulls.map((hull, idx) => {
+                const colorMeta = typeColorMap[hull.type] || {
+                  stroke: "#06b6d4",
+                  fill: "rgba(6, 182, 212, 0.08)",
+                  label: hull.type.toUpperCase(),
+                };
+                return (
+                  <g key={`hull-${hull.type}-${idx}`} className="pointer-events-none">
+                    <path
+                      d={hull.pathString}
+                      fill={colorMeta.fill}
+                      stroke={colorMeta.stroke}
+                      strokeWidth="1.5"
+                      strokeDasharray="5 5"
+                      className="opacity-70 transition-all duration-300"
+                    />
+                    <text
+                      x={hull.centroid[0]}
+                      y={hull.centroid[1] - 35}
+                      fill={colorMeta.stroke}
+                      fontSize="9"
+                      fontFamily="monospace"
+                      fontWeight="bold"
+                      textAnchor="middle"
+                      className="select-none tracking-widest opacity-80"
+                    >
+                      {colorMeta.label} ({hull.count})
+                    </text>
+                  </g>
+                );
+              })}
+
             {/* Edges Layer */}
             {filteredEdges.map((edge) => {
               const src = nodes.find((n) => n.id === edge.source);
@@ -784,7 +1216,7 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
               if (!src || !tgt) return null;
 
               const isAnomalyEdge = anomalyNodeIds.has(src.id) || anomalyNodeIds.has(tgt.id);
-              const isHighRisk = edge.riskWeight >= 80;
+              const isHighRisk = (edge.riskWeight || 0) >= 80;
 
               return (
                 <g key={edge.id} className="transition-opacity duration-300">
@@ -882,7 +1314,7 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
 
                   {/* Node Icon */}
                   <foreignObject x="-10" y="-10" width="20" height="20">
-                    <div className="w-full h-full flex items-center justify-center">
+                    <div className="w-full h-full flex items-center justify-center pointer-events-none">
                       <IconComponent className={`w-4 h-4 ${colors.text}`} />
                     </div>
                   </foreignObject>
@@ -940,6 +1372,7 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
           onClose={() => setSelectedNodeId(null)}
           userRole={userRole}
           onOpenAICopilotWithPrompt={onOpenAICopilotWithPrompt}
+          onOpenMetamorphicTester={onOpenMetamorphicTester}
         />
       )}
 
@@ -956,7 +1389,7 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
               </div>
               <button
                 onClick={() => setShowLiveScanModal(false)}
-                className="p-1 rounded text-slate-400 hover:text-slate-100 text-sm"
+                className="p-1 rounded text-slate-400 hover:text-slate-100 text-sm cursor-pointer"
               >
                 ✕
               </button>
@@ -1032,11 +1465,24 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
               </div>
             )}
 
-            <div className="flex justify-end pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+              {onOpenMetamorphicTester && scanResult && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLiveScanModal(false);
+                    onOpenMetamorphicTester(scanResult.host || targetInput);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                  <span>TEST METAMORPHIC RESILIENCE</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowLiveScanModal(false)}
-                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-semibold"
+                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-semibold cursor-pointer ml-auto"
               >
                 Close Scanner
               </button>
@@ -1058,7 +1504,7 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
               </div>
               <button
                 onClick={() => setShowOsintModal(false)}
-                className="text-slate-400 hover:text-slate-100 text-sm p-1 rounded"
+                className="text-slate-400 hover:text-slate-100 text-sm p-1 rounded cursor-pointer"
               >
                 ✕
               </button>
@@ -1100,7 +1546,7 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowOsintModal(false)}
-                  className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200"
+                  className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1140,7 +1586,7 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
               </div>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-slate-100 text-sm p-1 rounded"
+                className="text-slate-400 hover:text-slate-100 text-sm p-1 rounded cursor-pointer"
               >
                 ✕
               </button>
@@ -1217,13 +1663,13 @@ export const RelationshipGraph: React.FC<RelationshipGraphProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200"
+                  className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-mono font-bold"
+                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-mono font-bold cursor-pointer"
                 >
                   Ingest Node
                 </button>

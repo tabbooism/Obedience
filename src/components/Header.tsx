@@ -7,7 +7,8 @@ import {
   Lock,
   Flame,
   Menu,
-  X
+  X,
+  Key
 } from "lucide-react";
 import { UserRole } from "../types";
 
@@ -23,6 +24,7 @@ interface HeaderProps {
   isMobileMenuOpen?: boolean;
   onToggleMobileMenu?: () => void;
   onOpenGlobalSearch?: () => void;
+  onOpenReauthModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -37,6 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   isMobileMenuOpen = false,
   onToggleMobileMenu,
   onOpenGlobalSearch,
+  onOpenReauthModal,
 }) => {
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
@@ -159,6 +162,20 @@ export const Header: React.FC<HeaderProps> = ({
             {threatAlertCount}
           </span>
         </button>
+
+        {/* API Key / Session Status Badge */}
+        {onOpenReauthModal && (
+          <button
+            onClick={onOpenReauthModal}
+            id="header-btn-api-key-status"
+            className="hidden sm:flex items-center space-x-1 px-2 sm:px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-300 text-xs font-mono transition-all min-h-[38px] cursor-pointer"
+            title="Axios Interceptor API Key Status - Click to inspect credentials or trigger re-authentication"
+          >
+            <Key className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden xl:inline text-[10px] text-emerald-400 font-bold">KEY:</span>
+            <span className="text-[11px] font-bold text-emerald-300">ACTIVE</span>
+          </button>
+        )}
 
         {/* Granular RBAC Role Selector */}
         <div className="flex items-center space-x-1 bg-slate-950/80 border border-slate-800 rounded-lg px-1.5 sm:px-2 py-1 min-h-[38px]">

@@ -5,6 +5,7 @@ import {
   GraphEdge, 
   UserRole 
 } from "../../types";
+import { apiClient } from "../../utils/apiClient";
 import { 
   Sparkles, 
   Send, 
@@ -58,7 +59,7 @@ export const AICopilotModal: React.FC<AICopilotModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [copilotRole, setCopilotRole] = useState<string>("Lead OSINT Intelligence Officer");
   const [thinkingEnabled, setThinkingEnabled] = useState<boolean>(true);
-  const [selectedModel, setSelectedModel] = useState<string>("gemini-3.1-pro-preview");
+  const [selectedModel, setSelectedModel] = useState<string>("gemini-3.8-flash");
   const [expandedThinkingId, setExpandedThinkingId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -98,26 +99,22 @@ export const AICopilotModal: React.FC<AICopilotModalProps> = ({
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: newHistory.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          systemRole: copilotRole,
-          thinkingEnabled,
-          model: selectedModel,
-          graphContext: {
-            nodesCount: nodes.length,
-            edgesCount: edges.length,
-            highRiskNodes: nodes.filter((n) => n.riskScore >= 80).map((n) => `${n.label} (${n.type}, Risk: ${n.riskScore})`),
-          },
-        }),
+      const res = await apiClient.post("/api/chat", {
+        messages: newHistory.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+        systemRole: copilotRole,
+        thinkingEnabled,
+        model: selectedModel,
+        graphContext: {
+          nodesCount: nodes.length,
+          edgesCount: edges.length,
+          highRiskNodes: nodes.filter((n) => n.riskScore >= 80).map((n) => `${n.label} (${n.type}, Risk: ${n.riskScore})`),
+        },
       });
 
-      const data = await res.json();
+      const data = res.data;
       const modelEntropy = Math.random().toString(36).substring(2, 7);
       const modelReply: ChatMessage = {
         id: `msg-${Date.now()}-${modelEntropy}`,
@@ -236,8 +233,8 @@ export const AICopilotModal: React.FC<AICopilotModalProps> = ({
               onChange={(e) => setSelectedModel(e.target.value)}
               className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs focus:outline-none"
             >
+              <option value="gemini-3.8-flash">3.8 Flash (Recommended)</option>
               <option value="gemini-3.1-pro-preview">3.1 Pro (Deep)</option>
-              <option value="gemini-3.5-flash">3.5 Flash</option>
               <option value="gemini-3.1-flash-lite">3.1 Lite (Fast)</option>
             </select>
           </div>

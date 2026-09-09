@@ -8,6 +8,7 @@ export type UserRole =
 
 export type ActiveTab = 
   | "graph" 
+  | "anomalies"
   | "redteam" 
   | "payloads"
   | "threats" 
@@ -260,3 +261,85 @@ export interface PayloadAnalysisResult {
   recommendedQuarantineAction: string;
   yaraRule?: string;
 }
+
+export type AnomalyAlgorithmType = 
+  | "isolation_forest" 
+  | "local_outlier_factor" 
+  | "graph_topology" 
+  | "robust_zscore_mad" 
+  | "temporal_beaconing" 
+  | "vulnerability_correlation";
+
+export type AnomalySeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+
+export interface FeatureDeviation {
+  feature: string;
+  observed: number | string;
+  baseline: number | string;
+  deviationZ?: number;
+  description?: string;
+}
+
+export interface DetectedAnomaly {
+  id: string;
+  entityId: string;
+  entityLabel: string;
+  entityType: EntityType | "network_flow" | "user_session" | "endpoint" | string;
+  algorithm: AnomalyAlgorithmType;
+  algorithmName: string;
+  anomalyScore: number; // 0 - 100
+  severity: AnomalySeverity;
+  title: string;
+  description: string;
+  mathematicalBasis: string;
+  deviatingFeatures: FeatureDeviation[];
+  potentialIncident: boolean;
+  incidentType?: string;
+  vulnerabilityDetails?: {
+    cveId?: string;
+    cvss?: number;
+    attackVector?: string;
+  };
+  mitreTechnique?: string;
+  recommendedAction: string;
+  timestamp: string;
+  status: "Active" | "Investigating" | "Quarantined" | "Dismissed";
+}
+
+export interface AnomalySuiteConfig {
+  enabledAlgorithms: Record<AnomalyAlgorithmType, boolean>;
+  contaminationRate: number; // 0.01 to 0.35 (default: 0.10)
+  isolationTreesCount: number; // default: 100
+  subsampleSize: number; // default: 256
+  lofKNeighbors: number; // default: 15
+  zScoreThreshold: number; // default: 3.5
+  beaconingJitterMax: number; // default: 0.15 (coefficient of variation)
+  minConfidence: number; // default: 60
+}
+
+export interface TelemetryRecord {
+  id: string;
+  timestamp: string;
+  sourceIp: string;
+  destIp: string;
+  sourcePort: number;
+  destPort: number;
+  protocol: "TCP" | "UDP" | "HTTPS" | "DNS" | "SSH" | string;
+  bytesTransferred: number;
+  durationMs: number;
+  action: "ALLOW" | "BLOCK" | "ALERT";
+  user?: string;
+  anomalyFlags?: string[];
+  isGroundTruthAnomaly?: boolean;
+}
+
+export interface AnomalyBenchmarkResult {
+  totalRecordsProcessed: number;
+  totalAnomaliesDetected: number;
+  executionTimeMs: number;
+  throughputPerSec: number;
+  algorithmBreakdown: Record<string, number>;
+  criticalIncidentsCount: number;
+  highSeverityCount: number;
+}
+

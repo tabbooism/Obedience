@@ -4,6 +4,7 @@ import {
   GraphEdge, 
   UserRole 
 } from "../../types";
+import { apiClient } from "../../utils/apiClient";
 import { 
   FileText, 
   Sparkles, 
@@ -69,17 +70,13 @@ Red Team vulnerability assessments show an exposure score of **64/100**. The pri
   const handleGenerateReport = async () => {
     setIsGenerating(true);
     try {
-      const res = await fetch("/api/generate-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nodes,
-          edges,
-          reportType,
-          targetFocus: targetEntity,
-        }),
+      const res = await apiClient.post("/api/generate-report", {
+        nodes,
+        edges,
+        reportType,
+        targetFocus: targetEntity,
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.report) {
         setGeneratedReport(data.report);
       }

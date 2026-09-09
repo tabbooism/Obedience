@@ -17,15 +17,18 @@ import {
   CheckCircle2,
   Trash2
 } from "lucide-react";
+import { AxiosInterceptorConsole } from "./AxiosInterceptorConsole";
 
 interface ApiIntegrationsProps {
   userRole: UserRole;
   onAuditLog: (action: string, target: string, justification: string) => void;
+  onOpenReauthModal?: () => void;
 }
 
 export const ApiIntegrationsView: React.FC<ApiIntegrationsProps> = ({
   userRole,
   onAuditLog,
+  onOpenReauthModal,
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -138,6 +141,13 @@ export const ApiIntegrationsView: React.FC<ApiIntegrationsProps> = ({
           <span>NEW SOAR WORKFLOW</span>
         </button>
       </div>
+
+      {/* Axios Interceptor & Auth Resilience Engine Console */}
+      <AxiosInterceptorConsole 
+        userRole={userRole}
+        onAuditLog={onAuditLog}
+        onOpenReauthModal={onOpenReauthModal}
+      />
 
       {/* Automated SOAR Playbooks Section */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3">

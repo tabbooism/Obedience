@@ -18,6 +18,7 @@ import {
 } from "../../utils/payloadEngine";
 import { calculateSha256 } from "../../utils/cryptoVault";
 import { ScenarioPreviewVisualizer } from "./ScenarioPreviewVisualizer";
+import { apiClient } from "../../utils/apiClient";
 import { 
   Terminal, 
   Cpu, 
@@ -188,27 +189,19 @@ level: high`);
     setAiError(null);
 
     try {
-      const res = await fetch("/api/payload/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetOS,
-          payloadCategory: "reverse_shell",
-          lhost,
-          lport,
-          architecture,
-          evasionLevel,
-          edrTarget,
-          customDirective: customPrompt,
-          format: targetOS === "windows" ? "powershell" : targetOS === "linux" ? "python" : "bash",
-        }),
+      const res = await apiClient.post("/api/payload/generate", {
+        targetOS,
+        payloadCategory: "reverse_shell",
+        lhost,
+        lport,
+        architecture,
+        evasionLevel,
+        edrTarget,
+        customDirective: customPrompt,
+        format: targetOS === "windows" ? "powershell" : targetOS === "linux" ? "python" : "bash",
       });
 
-      if (!res.ok) {
-        throw new Error(`Server returned HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
+      const data = res.data;
       if (data.success && data.payload) {
         setCurrentCode(data.payload.code);
         setCurrentFilename(data.payload.filename || "ai_generated_payload.bin");
@@ -224,7 +217,7 @@ level: high`);
         );
       }
     } catch (err: any) {
-      setAiError(err.message || "Failed to synthesize payload via AI engine.");
+      setAiError(err.response?.data?.error || err.message || "Failed to synthesize payload via AI engine.");
     } finally {
       setIsGeneratingAI(false);
     }
@@ -237,12 +230,10 @@ level: high`);
     setAnalysisResult(null);
 
     try {
-      const res = await fetch("/api/payload/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rawPayload: sandboxInput }),
+      const res = await apiClient.post("/api/payload/analyze", {
+        rawPayload: sandboxInput,
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.success && data.analysis) {
         setAnalysisResult(data.analysis);
         onAuditLog(

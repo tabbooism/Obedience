@@ -4,6 +4,7 @@ import {
   GraphEdge, 
   UserRole 
 } from "../../types";
+import { apiClient } from "../../utils/apiClient";
 import { 
   X, 
   Sparkles, 
@@ -32,6 +33,7 @@ interface NodeInspectorProps {
   userRole: UserRole;
   onRunAIEvaluation?: (node: GraphNode) => void;
   onOpenAICopilotWithPrompt?: (prompt: string) => void;
+  onOpenMetamorphicTester?: (targetDomain?: string) => void;
 }
 
 export const NodeInspector: React.FC<NodeInspectorProps> = ({
@@ -46,6 +48,7 @@ export const NodeInspector: React.FC<NodeInspectorProps> = ({
   userRole,
   onRunAIEvaluation,
   onOpenAICopilotWithPrompt,
+  onOpenMetamorphicTester,
 }) => {
   const [isEnriching, setIsEnriching] = useState(false);
   const [enrichmentResult, setEnrichmentResult] = useState<any>(null);
@@ -64,15 +67,11 @@ export const NodeInspector: React.FC<NodeInspectorProps> = ({
   const handleEnrich = async () => {
     setIsEnriching(true);
     try {
-      const res = await fetch("/api/enrich-entity", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          entityType: node.type,
-          entityValue: node.label,
-        }),
+      const res = await apiClient.post("/api/enrich-entity", {
+        entityType: node.type,
+        entityValue: node.label,
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.enriched) {
         setEnrichmentResult(data.enriched);
         // Automatically append discovered tags
@@ -183,6 +182,16 @@ export const NodeInspector: React.FC<NodeInspectorProps> = ({
             <Sparkles className={`w-3.5 h-3.5 text-cyan-200 ${isEnriching ? "animate-spin" : ""}`} />
             <span>{isEnriching ? "QUERYING OSINT TELEMETRY..." : "AI DEEP OSINT ENRICHMENT"}</span>
           </button>
+
+          {onOpenMetamorphicTester && (node.type === "domain" || node.type === "ip_address" || node.label.includes(".")) && (
+            <button
+              onClick={() => onOpenMetamorphicTester(node.label)}
+              className="w-full mt-2 py-2 px-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+              <span>TEST METAMORPHIC RESILIENCE</span>
+            </button>
+          )}
         </div>
 
         {/* AI OSINT Enrichment Result Box */}

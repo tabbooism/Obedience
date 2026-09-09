@@ -45,6 +45,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badgeColor: "bg-amber-500/20 text-amber-300 border-amber-500/30",
     },
     {
+      id: "anomalies" as ActiveTab,
+      label: "Anomaly Detection Suite",
+      sublabel: "iForest, LOF & C2 Cadence",
+      icon: Activity,
+      badge: anomalyCount > 0 ? `${anomalyCount} Alert` : "6 Algos",
+      badgeColor: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+    },
+    {
       id: "redteam" as ActiveTab,
       label: "Red Team & Posture",
       sublabel: "MITRE ATT&CK & Simulations",

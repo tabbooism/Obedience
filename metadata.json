@@ -1,6 +1,6 @@
 {
   "name": "AegisOSINT & Threat Command Center",
-  "description": "Enterprise OSINT investigation dashboard with interactive relationship mapping, automated report generation, red team defensive posture simulation, real-time threat feeds, criminal background vetting, master key management, and AI copilot.",
+  "description": "Enterprise OSINT investigation dashboard with multi-model anomaly detection algorithms, interactive relationship mapping, automated report generation, red team defensive posture simulation, real-time threat feeds, and master key management.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

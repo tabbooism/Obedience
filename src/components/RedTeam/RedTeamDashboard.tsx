@@ -4,6 +4,7 @@ import {
   GraphNode, 
   UserRole 
 } from "../../types";
+import { apiClient } from "../../utils/apiClient";
 import { 
   Crosshair, 
   ShieldAlert, 
@@ -30,6 +31,7 @@ interface RedTeamDashboardProps {
   userRole: UserRole;
   onAuditLog: (action: string, target: string, justification: string) => void;
   onNavigateToPayloads?: () => void;
+  onOpenMetamorphicTester?: (targetDomain?: string) => void;
 }
 
 export const RedTeamDashboard: React.FC<RedTeamDashboardProps> = ({
@@ -39,6 +41,7 @@ export const RedTeamDashboard: React.FC<RedTeamDashboardProps> = ({
   userRole,
   onAuditLog,
   onNavigateToPayloads,
+  onOpenMetamorphicTester,
 }) => {
   const [selectedScenario, setSelectedScenario] = useState<string>(
     "APT29_SCIF_EXFILTRATION"
@@ -89,16 +92,12 @@ export const RedTeamDashboard: React.FC<RedTeamDashboardProps> = ({
         ]);
       }, 1400);
 
-      const res = await fetch("/api/simulate-redteam", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          attackVector: selectedScenario,
-          targetAsset,
-          targetDefenseLevel: defenseLevel,
-        }),
+      const res = await apiClient.post("/api/simulate-redteam", {
+        attackVector: selectedScenario,
+        targetAsset,
+        targetDefenseLevel: defenseLevel,
       });
-      const data = await res.json();
+      const data = res.data;
 
       setTimeout(() => {
         setSimulationResult(data.simulation);
@@ -266,6 +265,18 @@ export const RedTeamDashboard: React.FC<RedTeamDashboardProps> = ({
               OPERATOR CLEARANCE: <span className="text-cyan-400 font-bold">{userRole}</span>
             </span>
             <div className="flex flex-wrap items-center gap-2">
+              {onOpenMetamorphicTester && (
+                <button
+                  id="btn-redteam-metamorphic-test"
+                  onClick={() => onOpenMetamorphicTester("auth-defense-portal.com")}
+                  className="px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-lg font-mono text-xs font-bold flex items-center space-x-1.5 transition-colors cursor-pointer"
+                  title="Trigger Metamorphic HTTP Injection Resilience Tests (XSS, SQLi, Command Injection)"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="hidden sm:inline">TRIGGER RESILIENCE TESTS</span>
+                  <span className="sm:hidden">RESILIENCE TESTS</span>
+                </button>
+              )}
               {onNavigateToPayloads && (
                 <button
                   onClick={onNavigateToPayloads}

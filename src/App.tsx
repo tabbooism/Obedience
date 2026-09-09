@@ -41,7 +41,10 @@ import { ReportGenerator } from "./components/AutomatedReports/ReportGenerator";
 import { ApiIntegrationsView } from "./components/ApiAutomation/ApiIntegrationsView";
 import { AICopilotModal } from "./components/AICopilot/AICopilotModal";
 import { GlobalSearchPalette } from "./components/GlobalSearch/GlobalSearchPalette";
-import { Download, Trash2, Radio, CheckCircle2, Network, Crosshair, Terminal, Flame, Layers } from "lucide-react";
+import { AnomalyDetectionDashboard } from "./components/AnomalySuite/AnomalyDetectionDashboard";
+import { MetamorphicTestModal } from "./components/RedTeam/MetamorphicTestModal";
+import { ReAuthModal } from "./components/Auth/ReAuthModal";
+import { Download, Trash2, Radio, CheckCircle2, Network, Crosshair, Terminal, Flame, Layers, Activity, ShieldAlert } from "lucide-react";
 
 export const App: React.FC = () => {
   // Global State
@@ -51,6 +54,7 @@ export const App: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState<boolean>(false);
   const [targetProfileId, setTargetProfileId] = useState<string | undefined>(undefined);
+  const [isReAuthModalOpen, setIsReAuthModalOpen] = useState<boolean>(false);
 
   // Initialize from persisted workspace or live clean state
   const savedState = loadLiveWorkspace();
@@ -67,6 +71,10 @@ export const App: React.FC = () => {
   // AI Copilot state
   const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
   const [copilotInitialPrompt, setCopilotInitialPrompt] = useState<string>("");
+
+  // Metamorphic Resilience Test state
+  const [isMetamorphicModalOpen, setIsMetamorphicModalOpen] = useState<boolean>(false);
+  const [metamorphicTargetInitial, setMetamorphicTargetInitial] = useState<string>("auth-defense-portal.com");
 
   // Target Key focus state for Master Keys navigation
   const [focusedKeyId, setFocusedKeyId] = useState<string | undefined>(undefined);
@@ -257,6 +265,7 @@ export const App: React.FC = () => {
         isMobileMenuOpen={isMobileMenuOpen}
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         onOpenGlobalSearch={() => setIsGlobalSearchOpen(true)}
+        onOpenReauthModal={() => setIsReAuthModalOpen(true)}
       />
 
       {/* Sub-bar: Live Operations Quick Controls */}
@@ -279,6 +288,20 @@ export const App: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-1.5 sm:space-x-2 pl-2">
+          {/* Metamorphic Resilience Test Trigger Button */}
+          <button
+            id="btn-trigger-metamorphic-resilience"
+            onClick={() => {
+              setMetamorphicTargetInitial("auth-defense-portal.com");
+              setIsMetamorphicModalOpen(true);
+            }}
+            className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded text-[10px] sm:text-[11px] flex items-center space-x-1.5 transition-colors font-mono shadow-sm shrink-0 cursor-pointer"
+            title="Trigger Metamorphic HTTP Injection Resilience Tests (XSS, SQLi, Command Injection)"
+          >
+            <ShieldAlert className="w-3 h-3 text-amber-400" />
+            <span className="font-bold">RESILIENCE TESTS</span>
+          </button>
+
           <button
             onClick={handleExportDossier}
             className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] sm:text-[11px] flex items-center space-x-1 border border-slate-700 transition-colors shrink-0"
@@ -322,6 +345,30 @@ export const App: React.FC = () => {
               userRole={userRole}
               onOpenAICopilotWithPrompt={handleOpenAICopilotWithPrompt}
               searchFilter={searchFilter}
+              onOpenAnomalySuite={() => setActiveTab("anomalies")}
+              onOpenMetamorphicTester={(target) => {
+                if (target) setMetamorphicTargetInitial(target);
+                setIsMetamorphicModalOpen(true);
+              }}
+            />
+          )}
+
+          {activeTab === "anomalies" && (
+            <AnomalyDetectionDashboard
+              nodes={nodes}
+              edges={edges}
+              vulnerabilities={vulnerabilities}
+              threats={threats}
+              masterKeys={masterKeys}
+              auditLogs={auditLogs}
+              userRole={userRole}
+              onAuditLog={appendAuditLog}
+              onOpenAICopilotWithPrompt={handleOpenAICopilotWithPrompt}
+              onNavigateToGraph={(nodeId) => {
+                setActiveTab("graph");
+                if (nodeId) setSearchFilter(nodeId);
+              }}
+              onUpdateNodes={setNodes}
             />
           )}
 
@@ -333,6 +380,10 @@ export const App: React.FC = () => {
               userRole={userRole}
               onAuditLog={appendAuditLog}
               onNavigateToPayloads={() => setActiveTab("payloads")}
+              onOpenMetamorphicTester={(target) => {
+                if (target) setMetamorphicTargetInitial(target);
+                setIsMetamorphicModalOpen(true);
+              }}
             />
           )}
 
@@ -413,6 +464,7 @@ export const App: React.FC = () => {
             <ApiIntegrationsView
               userRole={userRole}
               onAuditLog={appendAuditLog}
+              onOpenReauthModal={() => setIsReAuthModalOpen(true)}
             />
           )}
 
@@ -538,6 +590,24 @@ export const App: React.FC = () => {
         onAddNodeToGraph={handleAddNodeToGraph}
         onOpenAICopilotWithPrompt={handleOpenAICopilotWithPrompt}
         userRole={userRole}
+      />
+
+      {/* Metamorphic HTTP Payload Resilience Tester Modal */}
+      <MetamorphicTestModal
+        isOpen={isMetamorphicModalOpen}
+        onClose={() => setIsMetamorphicModalOpen(false)}
+        targetDomainInitial={metamorphicTargetInitial}
+        graphNodes={nodes}
+        onAddNodeToGraph={handleAddNodeToGraph}
+        onAuditLog={appendAuditLog}
+      />
+
+      {/* Axios Interceptor Security Re-Authentication Modal */}
+      <ReAuthModal
+        isOpen={isReAuthModalOpen ? true : undefined}
+        onClose={() => setIsReAuthModalOpen(false)}
+        currentUserRole={userRole}
+        onAuditLog={appendAuditLog}
       />
     </div>
   );
